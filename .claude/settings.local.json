@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(cargo check *)",
+      "Bash(cargo test *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(where pnpm *)",
+      "Bash(cmd /c \"where pnpm 2>nul\")",
+      "Read(//c/Users/welle/AppData/Local/pnpm\" 2>/dev/**)",
+      "Bash(cmd /c \"where pnpm\")",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(pnpm add *)",
+      "Bash(npm add *)",
+      "Bash(npm test *)",
+      "Bash(git init *)"
+    ]
+  }
+}

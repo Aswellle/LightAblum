@@ -1,0 +1,7 @@
+node_modules/
+*.webp
+test/fixtures/*.jpg
+test/fixtures/*.png
+test/fixtures/*.heic
+test/fixtures/*.cr2
+test/fixtures/*.nef

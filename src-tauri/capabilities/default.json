@@ -1,0 +1,25 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "LightAlbum default capability",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "sharp-worker",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
+    "dialog:default"
+  ]
+}

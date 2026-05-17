@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+sidecar/node_modules/
+
+# Build outputs
+dist/
+src-tauri/target/
+src-tauri/binaries/
+
+# Tauri
+*.app
+*.dmg
+*.deb
+*.rpm
+*.msi
+*.exe
+
+# Misc
+.DS_Store
+*.log

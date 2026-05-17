@@ -1,0 +1,264 @@
+/**
+ * @file src/styles/tokens.css
+ * @description LightAlbum 设计令牌系统
+ *
+ * 参照 Apple Photos 美学（PRD §5.2）：
+ *   - 深色模式为默认，背景更纯黑，让照片色彩更鲜明
+ *   - 强调色 #0A84FF（深色模式 Apple Blue）
+ *   - 字体：Segoe UI Variable (Win11) / Segoe UI (Win10) / Inter
+ *
+ * 命名规范：
+ *   --la-{category}-{variant}
+ *   la = LightAlbum，避免与 Tailwind 变量冲突
+ */
+
+/* ═══════════════════════════════════════════════════════════
+   深色模式（默认 / .dark）
+   背景参考 Apple Photos Dark Mode
+   ═══════════════════════════════════════════════════════════ */
+:root,
+:root.dark {
+
+  /* ── 颜色系统 ── */
+
+  /* 背景层级（深色） */
+  --la-bg-app:          #000000;    /* 主网格背景：纯黑，照片第一 */
+  --la-bg-sidebar:      #1C1C1E;    /* 侧边栏 */
+  --la-bg-toolbar:      #1C1C1E;    /* 工具栏 */
+  --la-bg-statusbar:    #1C1C1E;    /* 状态栏 */
+  --la-bg-raised:       #2C2C2E;    /* 悬浮卡片、下拉菜单 */
+  --la-bg-overlay:      #3A3A3C;    /* 输入框、弹层内容区 */
+  --la-bg-hover:        rgba(255,255,255,0.06);
+  --la-bg-active:       rgba(255,255,255,0.10);
+  --la-bg-selected:     rgba(10,132,255,0.20);
+
+  /* 毛玻璃遮罩（大图预览背景） */
+  --la-bg-glass:        rgba(0,0,0,0.85);
+  --la-bg-glass-blur:   20px;
+
+  /* 文字 */
+  --la-text-primary:    #F5F5F7;    /* 主文字 */
+  --la-text-secondary:  #98989D;    /* 次要文字（分组标题、元数据） */
+  --la-text-tertiary:   #636366;    /* 弱提示文字 */
+  --la-text-disabled:   #48484A;    /* 禁用态 */
+  --la-text-on-accent:  #FFFFFF;    /* 强调色背景上的文字 */
+
+  /* 强调色（Apple Blue） */
+  --la-accent:          #0A84FF;
+  --la-accent-hover:    #409CFF;
+  --la-accent-pressed:  #0060DD;
+  --la-accent-subtle:   rgba(10,132,255,0.15);
+
+  /* 危险色 */
+  --la-danger:          #FF453A;
+  --la-danger-subtle:   rgba(255,69,58,0.15);
+
+  /* 成功色 */
+  --la-success:         #30D158;
+  --la-success-subtle:  rgba(48,209,88,0.15);
+
+  /* 收藏心形 */
+  --la-favorite:        #FF375F;
+
+  /* 边框与分隔线 */
+  --la-border:          rgba(255,255,255,0.08);
+  --la-border-strong:   rgba(255,255,255,0.16);
+  --la-divider:         rgba(255,255,255,0.06);
+
+  /* 阴影 */
+  --la-shadow-sm:       0 1px 3px rgba(0,0,0,0.5);
+  --la-shadow-md:       0 4px 12px rgba(0,0,0,0.6);
+  --la-shadow-lg:       0 8px 32px rgba(0,0,0,0.7);
+  --la-shadow-overlay:  0 16px 48px rgba(0,0,0,0.8);
+
+  /* ── 排版 ── */
+
+  --la-font-sans:
+    'Segoe UI Variable',
+    'Segoe UI',
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
+
+  --la-font-mono:
+    'Cascadia Code',
+    'Consolas',
+    'SF Mono',
+    monospace;
+
+  /* 字号阶梯（Apple HIG 参考） */
+  --la-text-xs:    11px;
+  --la-text-sm:    13px;
+  --la-text-base:  15px;
+  --la-text-md:    17px;
+  --la-text-lg:    20px;
+  --la-text-xl:    24px;
+  --la-text-2xl:   28px;
+
+  /* 字重 */
+  --la-weight-regular:    400;
+  --la-weight-medium:     500;
+  --la-weight-semibold:   600;
+  --la-weight-bold:       700;
+
+  /* 行高 */
+  --la-leading-tight:   1.2;
+  --la-leading-normal:  1.4;
+  --la-leading-relaxed: 1.6;
+
+  /* ── 间距 ── */
+
+  --la-space-1:   2px;
+  --la-space-2:   4px;
+  --la-space-3:   6px;
+  --la-space-4:   8px;
+  --la-space-5:   12px;
+  --la-space-6:   16px;
+  --la-space-7:   20px;
+  --la-space-8:   24px;
+  --la-space-10:  32px;
+  --la-space-12:  40px;
+  --la-space-16:  48px;
+
+  /* ── 圆角 ── */
+
+  /* PRD §5.2 圆角规则 */
+  --la-radius-none:   0px;
+  --la-radius-xs:     2px;
+  --la-radius-sm:     4px;    /* 照片缩略图（标准模式及以上） */
+  --la-radius-md:     8px;    /* 按钮、输入框 */
+  --la-radius-lg:     12px;   /* 弹窗、面板、卡片 */
+  --la-radius-xl:     16px;   /* 大卡片 */
+  --la-radius-full:   9999px; /* 胶囊形（搜索框） */
+
+  /* ── 布局尺寸 ── */
+
+  --la-sidebar-w:       220px;
+  --la-sidebar-w-min:   160px;
+  --la-sidebar-w-max:   320px;
+  --la-sidebar-w-icon:  48px;   /* 折叠为图标模式 */
+  --la-toolbar-h:       52px;
+  --la-statusbar-h:     28px;
+  --la-titlebar-h:      32px;   /* 自定义标题栏 */
+
+  /* 大图预览 EXIF 面板宽度 */
+  --la-exif-panel-w:    320px;
+
+  /* ── 网格系统 ── */
+
+  /* 密度级别 → CSS var，由 layoutStore 动态修改 */
+  --la-grid-gap:        4px;    /* 初始值，运行时覆盖 */
+  --la-grid-item-size:  200px;  /* 初始值，运行时覆盖 */
+
+  /* ── 动画 & 过渡 ── */
+
+  /* 缓动曲线（参照 PRD §5.3 & Apple 设计规范） */
+  --la-ease-apple:      cubic-bezier(0.2, 0, 0, 1);   /* 飞入飞出 */
+  --la-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1); /* 弹性感 */
+  --la-ease-smooth:     cubic-bezier(0.4, 0, 0.2, 1); /* Material 标准 */
+  --la-ease-in:         cubic-bezier(0.4, 0, 1, 1);
+  --la-ease-out:        cubic-bezier(0, 0, 0.2, 1);
+
+  /* 时长 */
+  --la-dur-instant:  80ms;
+  --la-dur-fast:     150ms;   /* 照片加载淡入、hover */
+  --la-dur-normal:   250ms;   /* 侧边栏展开、面板滑入 */
+  --la-dur-medium:   350ms;   /* 大图飞入 */
+  --la-dur-slow:     400ms;   /* 布局切换 morph */
+  --la-dur-slower:   600ms;   /* 首屏加载动画 */
+
+  /* ── 层级（z-index） ── */
+
+  --la-z-base:        0;
+  --la-z-raised:      10;
+  --la-z-dropdown:    100;
+  --la-z-sticky:      200;
+  --la-z-overlay:     300;
+  --la-z-modal:       400;
+  --la-z-preview:     500;    /* 大图预览覆盖所有内容 */
+  --la-z-toast:       600;
+  --la-z-tooltip:     700;
+  --la-z-titlebar:    800;    /* 自定义标题栏始终最顶层 */
+
+  /* ── 滚动条 ── */
+  --la-scrollbar-w:   6px;
+  --la-scrollbar-thumb: rgba(255,255,255,0.2);
+  --la-scrollbar-thumb-hover: rgba(255,255,255,0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   浅色模式（.light）
+   ═══════════════════════════════════════════════════════════ */
+:root.light {
+
+  /* 背景层级（浅色） */
+  --la-bg-app:          #FFFFFF;
+  --la-bg-sidebar:      #F5F5F7;
+  --la-bg-toolbar:      rgba(246,246,248,0.8);
+  --la-bg-statusbar:    #F0F0F2;
+  --la-bg-raised:       #FFFFFF;
+  --la-bg-overlay:      #F0F0F2;
+  --la-bg-hover:        rgba(0,0,0,0.04);
+  --la-bg-active:       rgba(0,0,0,0.07);
+  --la-bg-selected:     rgba(0,122,255,0.12);
+
+  --la-bg-glass:        rgba(246,246,248,0.88);
+
+  /* 文字 */
+  --la-text-primary:    #1D1D1F;
+  --la-text-secondary:  #86868B;
+  --la-text-tertiary:   #AEAEB2;
+  --la-text-disabled:   #C7C7CC;
+
+  /* 强调色（浅色模式 Apple Blue） */
+  --la-accent:          #007AFF;
+  --la-accent-hover:    #0066DD;
+  --la-accent-pressed:  #0051A8;
+  --la-accent-subtle:   rgba(0,122,255,0.12);
+
+  /* 危险色 */
+  --la-danger:          #FF3B30;
+  --la-danger-subtle:   rgba(255,59,48,0.10);
+
+  /* 成功色 */
+  --la-success:         #34C759;
+  --la-success-subtle:  rgba(52,199,89,0.12);
+
+  /* 边框 */
+  --la-border:          rgba(0,0,0,0.08);
+  --la-border-strong:   rgba(0,0,0,0.15);
+  --la-divider:         rgba(0,0,0,0.06);
+
+  /* 阴影 */
+  --la-shadow-sm:       0 1px 3px rgba(0,0,0,0.10);
+  --la-shadow-md:       0 4px 12px rgba(0,0,0,0.12);
+  --la-shadow-lg:       0 8px 32px rgba(0,0,0,0.15);
+  --la-shadow-overlay:  0 16px 48px rgba(0,0,0,0.18);
+
+  /* 滚动条 */
+  --la-scrollbar-thumb: rgba(0,0,0,0.15);
+  --la-scrollbar-thumb-hover: rgba(0,0,0,0.28);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Tailwind CSS v4 自定义变量桥接
+   使 Tailwind 实用类可以直接消费 --la-* 变量
+   ═══════════════════════════════════════════════════════════ */
+@theme {
+  /* 颜色 → 与 tailwind.config.ts extend.colors 对应 */
+  --color-la-bg-app:       var(--la-bg-app);
+  --color-la-bg-sidebar:   var(--la-bg-sidebar);
+  --color-la-bg-raised:    var(--la-bg-raised);
+  --color-la-bg-overlay:   var(--la-bg-overlay);
+  --color-la-text-primary: var(--la-text-primary);
+  --color-la-text-secondary: var(--la-text-secondary);
+  --color-la-accent:       var(--la-accent);
+  --color-la-danger:       var(--la-danger);
+  --color-la-favorite:     var(--la-favorite);
+  --color-la-border:       var(--la-border);
+
+  /* 字体 */
+  --font-sans: var(--la-font-sans);
+  --font-mono: var(--la-font-mono);
+}

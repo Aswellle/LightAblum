@@ -1,0 +1,333 @@
+/**
+ * @file src/styles/global.css
+ * @description LightAlbum 全局样式重置与基础规则
+ *
+ * 加载顺序（在 main.tsx 中 import）：
+ *   1. tokens.css      → CSS 变量
+ *   2. animations.css  → 关键帧 & 工具类
+ *   3. global.css      → 重置 & 基础规则（本文件）
+ */
+
+/* ── Tailwind CSS v4 核心 ── */
+@import 'tailwindcss';
+
+/* ── 设计令牌 ── */
+@import './tokens.css';
+
+/* ── 动画 ── */
+@import './animations.css';
+
+/* ═══════════════════════════════════════════════════════════
+   盒模型 & 基础重置
+   ═══════════════════════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   根容器
+   ═══════════════════════════════════════════════════════════ */
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;           /* Tauri 桌面应用，禁止根滚动 */
+}
+
+html {
+  /* 强制深色背景，防止 WebView2 白屏闪烁 */
+  background-color: #000000;
+}
+
+body {
+  font-family: var(--la-font-sans);
+  font-size: var(--la-text-base);
+  font-weight: var(--la-weight-regular);
+  line-height: var(--la-leading-normal);
+  color: var(--la-text-primary);
+  background-color: var(--la-bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   禁用默认交互样式
+   ═══════════════════════════════════════════════════════════ */
+
+/* 禁用整个 App 的文字选中（照片管理场景不需要文字选中） */
+.la-no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* App 根元素默认禁用选中 */
+#root {
+  user-select: none;
+  -webkit-user-select: none;
+  /* 允许输入框内选中 */
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 统一按钮/可点击元素的 cursor */
+button,
+[role='button'],
+[role='option'],
+[role='menuitem'],
+[role='tab'] {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 移除按钮默认样式 */
+button {
+  background: none;
+  border: none;
+  outline: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* 移除 a 标签默认样式 */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 移除 img 的底部间隙 */
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* 禁用 WebView2 中图片的拖拽（避免干扰照片网格操作） */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none; /* 由外层 div 处理事件 */
+}
+
+/* ═══════════════════════════════════════════════════════════
+   自定义滚动条（Webkit）
+   ═══════════════════════════════════════════════════════════ */
+
+/* 竖向滚动条 */
+::-webkit-scrollbar {
+  width: var(--la-scrollbar-w);
+}
+
+/* 横向滚动条 */
+::-webkit-scrollbar:horizontal {
+  height: var(--la-scrollbar-w);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--la-scrollbar-thumb);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--la-scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   焦点环（无障碍，仅键盘导航时显示）
+   ═══════════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--la-accent);
+  outline-offset: 2px;
+  border-radius: var(--la-radius-xs);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Tauri 自定义标题栏拖拽区域
+   ═══════════════════════════════════════════════════════════ */
+
+[data-tauri-drag-region] {
+  cursor: move;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* 标题栏内的按钮不参与拖拽 */
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] [data-tauri-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   布局骨架工具类
+   ═══════════════════════════════════════════════════════════ */
+
+/* 填满父容器 */
+.la-fill {
+  position: absolute;
+  inset: 0;
+}
+
+/* Flex 垂直居中 */
+.la-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 单行截断 */
+.la-truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 过渡：颜色/背景（用于交互反馈） */
+.la-transition-colors {
+  transition:
+    color var(--la-dur-fast) var(--la-ease-out),
+    background-color var(--la-dur-fast) var(--la-ease-out),
+    border-color var(--la-dur-fast) var(--la-ease-out),
+    opacity var(--la-dur-fast) var(--la-ease-out);
+}
+
+/* 过渡：transform（用于缩放/位移反馈） */
+.la-transition-transform {
+  transition: transform var(--la-dur-fast) var(--la-ease-out);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   照片网格相关工具类
+   ═══════════════════════════════════════════════════════════ */
+
+/* 正方形格子（固定宽高）*/
+.la-grid-cell {
+  width:  var(--la-grid-item-size);
+  height: var(--la-grid-item-size);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* 网格内图片填充（居中裁切）*/
+.la-grid-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
+
+/* 选中边框叠加层 */
+.la-selected-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--la-accent);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   文字颜色工具类（辅助 Tailwind 不能直接用 --la-* 的场景）
+   ═══════════════════════════════════════════════════════════ */
+
+.la-text-primary   { color: var(--la-text-primary); }
+.la-text-secondary { color: var(--la-text-secondary); }
+.la-text-tertiary  { color: var(--la-text-tertiary); }
+.la-text-accent    { color: var(--la-accent); }
+.la-text-danger    { color: var(--la-danger); }
+
+/* ═══════════════════════════════════════════════════════════
+   深色模式透明背景层（侧边栏、工具栏毛玻璃效果）
+   ═══════════════════════════════════════════════════════════ */
+
+.la-glass {
+  background: var(--la-bg-glass);
+  backdrop-filter: blur(var(--la-bg-glass-blur));
+  -webkit-backdrop-filter: blur(var(--la-bg-glass-blur));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Windows 11 Mica 效果模拟（深色模式侧边栏）
+   ═══════════════════════════════════════════════════════════ */
+.la-sidebar-surface {
+  background-color: var(--la-bg-sidebar);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HiDPI 图片渲染优化
+   ═══════════════════════════════════════════════════════════ */
+img {
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* WEBP 缩略图：禁用浏览器模糊（Tauri WebView2 的默认行为） */
+.la-thumb {
+  image-rendering: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Round-1 Fix: F-10 — GridItem hover 缩放（纯 CSS，GPU 合成）
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * .la-grid-item
+ *   取代 Framer Motion whileHover={{ scale: 1.03 }}
+ *   will-change: transform 提示浏览器提升为合成层，
+ *   hover 动画完全在 GPU 合成线程运行，不阻塞主线程。
+ */
+.la-grid-item {
+  will-change: transform;
+  transition: transform 0.15s ease-out;
+}
+
+.la-grid-item:hover {
+  transform: scale(1.03);
+}
+
+/**
+ * .la-grid-item-overlay
+ *   取代 <motion.div whileHover={{ opacity: 1 }}>
+ *   opacity 过渡同样在合成层完成。
+ */
+.la-grid-item-overlay {
+  position:   absolute;
+  inset:      0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, transparent 40%);
+  pointer-events: none;
+  opacity:    0;
+  transition: opacity 0.15s ease-out;
+}
+
+.la-grid-item:hover .la-grid-item-overlay {
+  opacity: 1;
+}

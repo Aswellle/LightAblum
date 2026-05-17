@@ -1,0 +1,274 @@
+/**
+ * @file src/styles/animations.css
+ * @description LightAlbum 全局动画关键帧与工具类
+ *
+ * 对应 PRD §5.3 关键交互动画清单
+ *
+ * 所有动画均使用 CSS transform / opacity（GPU 加速层），
+ * 严禁在动画中修改 width / height / top / left（触发重排）。
+ */
+
+/* ═══════════════════════════════════════════════════════════
+   基础关键帧
+   ═══════════════════════════════════════════════════════════ */
+
+/* 淡入（照片加载、Toast 出现） */
+@keyframes la-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 淡出 */
+@keyframes la-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* 缩放 + 淡入（网格项加载） */
+@keyframes la-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 上移 + 淡入（Toast、下拉菜单出现） */
+@keyframes la-slide-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 下移 + 淡出（Toast 消失） */
+@keyframes la-slide-down-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 右侧滑入（EXIF 面板、右侧抽屉） */
+@keyframes la-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 右侧滑出 */
+@keyframes la-slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* 左侧滑入（侧边栏展开） */
+@keyframes la-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 大图预览背景遮罩渐暗 */
+@keyframes la-backdrop-in {
+  from { background-color: rgba(0,0,0,0); }
+  to   { background-color: var(--la-bg-glass); }
+}
+
+@keyframes la-backdrop-out {
+  from { background-color: var(--la-bg-glass); }
+  to   { background-color: rgba(0,0,0,0); }
+}
+
+/* 骨架屏波纹（缩略图未生成时的占位动画） */
+@keyframes la-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* 旋转（加载 spinner） */
+@keyframes la-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* 心形收藏动画：弹出 + 缩回 */
+@keyframes la-heart-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* 选中勾选标记淡入 */
+@keyframes la-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   实用工具类
+   ═══════════════════════════════════════════════════════════ */
+
+/* 照片网格项加载淡入 */
+.la-grid-item-enter {
+  animation:
+    la-scale-in
+    var(--la-dur-fast)
+    var(--la-ease-out)
+    both;
+}
+
+/* EXIF 面板滑入 */
+.la-panel-slide-in {
+  animation:
+    la-slide-in-right
+    var(--la-dur-normal)
+    var(--la-ease-out)
+    both;
+}
+
+/* EXIF 面板滑出 */
+.la-panel-slide-out {
+  animation:
+    la-slide-out-right
+    var(--la-dur-normal)
+    var(--la-ease-out)
+    both;
+}
+
+/* Toast 出现 */
+.la-toast-enter {
+  animation:
+    la-slide-up-in
+    var(--la-dur-fast)
+    var(--la-ease-spring)
+    both;
+}
+
+/* Toast 消失 */
+.la-toast-exit {
+  animation:
+    la-slide-down-out
+    var(--la-dur-fast)
+    var(--la-ease-in)
+    both;
+}
+
+/* 骨架屏占位（缩略图尚未生成） */
+.la-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--la-bg-overlay) 0%,
+    var(--la-bg-hover)   50%,
+    var(--la-bg-overlay) 100%
+  );
+  background-size: 200% 100%;
+  animation:
+    la-shimmer
+    1.5s
+    linear
+    infinite;
+}
+
+/* 加载 spinner */
+.la-spinner {
+  animation:
+    la-spin
+    0.7s
+    linear
+    infinite;
+}
+
+/* 收藏心形动效 */
+.la-heart-pop {
+  animation:
+    la-heart-pop
+    var(--la-dur-normal)
+    var(--la-ease-spring)
+    both;
+}
+
+/* 选中标记 */
+.la-check-in {
+  animation:
+    la-check-in
+    var(--la-dur-fast)
+    var(--la-ease-spring)
+    both;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Framer Motion 辅助
+   以下类配合 Framer Motion 的 className 属性使用
+   ═══════════════════════════════════════════════════════════ */
+
+/* 大图预览背景层：Framer Motion 控制 opacity，CSS 提供毛玻璃 */
+.la-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(var(--la-bg-glass-blur));
+  -webkit-backdrop-filter: blur(var(--la-bg-glass-blur));
+  z-index: var(--la-z-preview);
+  will-change: opacity;
+}
+
+/* 大图预览容器：GPU 合成层 */
+.la-preview-container {
+  position: fixed;
+  inset: 0;
+  z-index: var(--la-z-preview);
+  will-change: transform, opacity;
+}
+
+/* 网格项：GPU 合成层提示 */
+.la-grid-item {
+  will-change: transform, opacity;
+  transform: translateZ(0);   /* 强制提升为合成层 */
+}
+
+/* ═══════════════════════════════════════════════════════════
+   减弱动画（无障碍：prefers-reduced-motion）
+   ═══════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

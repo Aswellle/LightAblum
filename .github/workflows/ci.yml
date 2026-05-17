@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (lint + typecheck + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+  rust:
+    name: Rust (fmt + clippy + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install system deps (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Check formatting
+        run: cargo fmt --check
+        working-directory: src-tauri
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: src-tauri
+
+      - name: Tests
+        run: cargo test -- --test-threads=4
+        working-directory: src-tauri
+
+  windows-compat:
+    name: Windows compatibility check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Rust check
+        run: cargo check
+        working-directory: src-tauri
