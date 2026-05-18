@@ -2,7 +2,7 @@
 
 一款基于 Tauri + React 构建的苹果风格本地相片管理应用，支持 macOS/Windows。
 
-[![CI](https://github.com/YOUR_USERNAME/lightalbum/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/lightalbum/actions/workflows/ci.yml)
+[![CI](https://github.com/Aswellle/LightAblum/actions/workflows/ci.yml/badge.svg)](https://github.com/Aswellle/LightAblum/actions/workflows/ci.yml)
 
 [English](#english) | [中文](#中文)
 
@@ -244,6 +244,19 @@ Contains: `library.db` (SQLite), `thumbnails/`, `settings.json`
 Rust 后端通过 Tauri 事件系统推送：`scan:started`, `scan:completed`, `thumb:ready`, `library:changed`, `photo:updated`, `album:updated`
 
 前端事件总线分发至 Zustand stores + TanStack Query 缓存，确保 UI 实时同步。
+
+---
+
+### Recent Fixes | 近期修复
+
+| 文件 | 严重性 | 问题 |
+|------|--------|------|
+| `src-tauri/src/state.rs` | P1 | Watcher 线程内 `db.get().unwrap()` — 连接池耗尽时线程崩溃，文件监听永久失效 |
+| `src-tauri/src/commands/scan.rs` | P1 | 扫描线程（`spawn_blocking`）内多处 `unwrap` — panic 后 `is_scanning` 永久为 true，进度条卡死 |
+| `src-tauri/src/thumbnail/pipeline.rs` | P1 | `enqueue_batch` / `update_db_thumbnails` / `enqueue_pending_all` 内 `db.get().unwrap()` |
+| `src-tauri/src/thumbnail/pipeline.rs` | P2 | 队列满时丢弃任务未从 `pending` 集合中移除，导致 photo_id 永久被拒绝入队 |
+| `src-tauri/src/commands/undo.rs` | P2 | `favorite_set` 撤销用 `unwrap_or(false)` 静默忽略错误，会恢复错误的收藏状态 |
+| `src-tauri/src/commands/undo.rs` | P2 | `favorite_batch` 撤销逐条调用 N 次事务，中途失败导致数据库状态不一致 |
 
 ---
 

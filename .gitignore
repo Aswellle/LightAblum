@@ -20,5 +20,5 @@ src-tauri/binaries/
 *.log
 
 # Claude Code / gstack — local development artifacts
-.claude/settings.local.json
+.claude/
 .gbrain-source
