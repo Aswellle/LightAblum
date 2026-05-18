@@ -18,3 +18,7 @@ src-tauri/binaries/
 # Misc
 .DS_Store
 *.log
+
+# Claude Code / gstack — local development artifacts
+.claude/settings.local.json
+.gbrain-source

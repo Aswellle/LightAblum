@@ -6,7 +6,6 @@
       "Bash(cargo test *)",
       "Bash(pnpm typecheck *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)",
       "Bash(where pnpm *)",
       "Bash(cmd /c \"where pnpm 2>nul\")",
       "Read(//c/Users/welle/AppData/Local/pnpm\" 2>/dev/**)",
@@ -16,7 +15,13 @@
       "Bash(pnpm add *)",
       "Bash(npm add *)",
       "Bash(npm test *)",
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(git commit *)",
+      "Bash(gh auth status)",
+      "Bash(git remote add *)",
+      "Bash(git remote -v)",
+      "Bash(git remote show *)",
+      "Bash(git push origin *)"
     ]
   }
 }
