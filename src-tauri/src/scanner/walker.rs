@@ -48,11 +48,13 @@ impl Default for FileWalker {
 impl FileWalker {
     /// 遍历一个或多个根目录，以批次迭代器方式返回支持的图片文件
     ///
-    /// ```rust
+    /// ```ignore
+    /// use std::path::PathBuf;
     /// let walker = FileWalker::default();
-    /// for batch in walker.walk(&[PathBuf::from("D:\\Photos")]) {
-    ///     let entries = batch?;
-    ///     // 处理这一批 entries...
+    /// for batch in walker.walk(&[PathBuf::from("/photos")]) {
+    ///     if let Ok(entries) = batch {
+    ///         // 处理这一批 entries...
+    ///     }
     /// }
     /// ```
     // ✅ 修复 E0597（lifetime may not live long enough）：
