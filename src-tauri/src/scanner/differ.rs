@@ -24,7 +24,7 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 pub struct DiffResult {
     /// 需要新增到 DB 的文件
-    pub to_add:    Vec<FileEntry>,
+    pub to_add: Vec<FileEntry>,
     /// 需要更新 DB 记录的文件（元数据变更）
     pub to_update: Vec<FileEntry>,
 }
@@ -60,9 +60,8 @@ pub fn diff_batch(conn: &Connection, entries: &[FileEntry]) -> Result<DiffResult
     let sql = format!(
         "SELECT file_path, file_size, modified_at \
          FROM photos \
-         WHERE file_path IN ({placeholders})"
-        // 注意：不加 is_deleted = 0，即使已软删除的文件也要检测到
-        // 若文件重新出现（用户移回），应能重新激活
+         WHERE file_path IN ({placeholders})" // 注意：不加 is_deleted = 0，即使已软删除的文件也要检测到
+                                              // 若文件重新出现（用户移回），应能重新激活
     );
 
     let mut stmt = conn.prepare(&sql)?;
@@ -70,14 +69,13 @@ pub fn diff_batch(conn: &Connection, entries: &[FileEntry]) -> Result<DiffResult
     // (file_path → (db_size, db_modified))
     let mut existing: HashMap<String, (i64, String)> = HashMap::new();
 
-    let rows = stmt.query_map(
-        rusqlite::params_from_iter(paths.iter()),
-        |row| Ok((
+    let rows = stmt.query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+        Ok((
             row.get::<_, String>(0)?,
             row.get::<_, i64>(1)?,
             row.get::<_, String>(2)?,
-        )),
-    )?;
+        ))
+    })?;
 
     for row in rows {
         let (path, size, modified) = row?;
@@ -120,7 +118,7 @@ pub fn diff_batch(conn: &Connection, entries: &[FileEntry]) -> Result<DiffResult
 pub fn find_missing(conn: &Connection, folder_path: &str) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path FROM photos \
-         WHERE folder_path = ?1 AND is_deleted = 0"
+         WHERE folder_path = ?1 AND is_deleted = 0",
     )?;
 
     let mut missing = Vec::new();
@@ -148,7 +146,7 @@ pub fn load_folder_index(
 ) -> Result<HashMap<String, (i64, String)>> {
     let mut stmt = conn.prepare(
         "SELECT file_path, file_size, modified_at FROM photos \
-         WHERE folder_path = ?1 AND is_deleted = 0"
+         WHERE folder_path = ?1 AND is_deleted = 0",
     )?;
 
     let mut index = HashMap::new();

@@ -15,9 +15,7 @@
 
 use crate::error::Result;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use notify_debouncer_full::{
-    new_debouncer, DebounceEventResult, Debouncer, FileIdMap,
-};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -37,9 +35,7 @@ pub enum FsChange {
 ///
 /// `debounce_ms`：事件合并窗口（毫秒），建议 500ms
 /// 返回 (watcher, receiver)，watcher 必须保持存活
-pub fn create_watcher(
-    debounce_ms: u64,
-) -> Result<(FsWatcher, mpsc::Receiver<Vec<FsChange>>)> {
+pub fn create_watcher(debounce_ms: u64) -> Result<(FsWatcher, mpsc::Receiver<Vec<FsChange>>)> {
     let (tx, rx) = mpsc::channel::<Vec<FsChange>>();
 
     let debouncer = new_debouncer(

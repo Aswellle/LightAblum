@@ -16,9 +16,9 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UndoEntry {
-    pub id:         i64,
-    pub action:     String,
-    pub payload:    String,
+    pub id: i64,
+    pub action: String,
+    pub payload: String,
     pub created_at: String,
 }
 
@@ -85,9 +85,9 @@ impl UndoRepository for SqliteUndoRepository {
                 [],
                 |row| {
                     Ok(UndoEntry {
-                        id:         row.get(0)?,
-                        action:     row.get(1)?,
-                        payload:    row.get(2)?,
+                        id: row.get(0)?,
+                        action: row.get(1)?,
+                        payload: row.get(2)?,
                         created_at: row.get(3)?,
                     })
                 },

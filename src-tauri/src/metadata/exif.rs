@@ -24,38 +24,38 @@ use std::path::Path;
 #[derive(Debug, Default, Clone)]
 pub struct ExifData {
     /// 拍摄时间（ISO 8601，如 "2025-03-14T10:30:00Z"）
-    pub created_at:    Option<String>,
+    pub created_at: Option<String>,
 
     /// EXIF Orientation（1-8，1=正常，6=顺时针90°，3=180°，8=逆时针90°）
-    pub orientation:   i32,
+    pub orientation: i32,
 
     /// 像素宽度（由 EXIF 读取，部分格式需 image crate 补充）
-    pub width:         Option<u32>,
+    pub width: Option<u32>,
     /// 像素高度
-    pub height:        Option<u32>,
+    pub height: Option<u32>,
 
     /// 相机品牌（如 "Canon"）
-    pub camera_make:   Option<String>,
+    pub camera_make: Option<String>,
     /// 相机型号（如 "EOS R5"）
-    pub camera_model:  Option<String>,
+    pub camera_model: Option<String>,
     /// 镜头型号（如 "EF 24-70mm f/2.8L II USM"）
-    pub lens_model:    Option<String>,
+    pub lens_model: Option<String>,
 
     /// 焦距 mm
-    pub focal_length:  Option<f64>,
+    pub focal_length: Option<f64>,
     /// 光圈值（f/2.8 → 2.8）
-    pub aperture:      Option<f64>,
+    pub aperture: Option<f64>,
     /// 快门速度原始字符串（如 "1/250"、"30\""）
     pub shutter_speed: Option<String>,
     /// ISO 感光度
-    pub iso:           Option<i32>,
+    pub iso: Option<i32>,
     /// 曝光补偿 EV
     pub exposure_comp: Option<f64>,
 
     /// GPS 纬度（WGS84 十进制，南纬为负）
-    pub gps_lat:       Option<f64>,
+    pub gps_lat: Option<f64>,
     /// GPS 经度（WGS84 十进制，西经为负）
-    pub gps_lng:       Option<f64>,
+    pub gps_lng: Option<f64>,
 }
 
 // ─────────────────────────────────────────────────────────
@@ -67,19 +67,26 @@ pub struct ExifData {
 /// 失败时（无 EXIF、格式不支持等）返回 `ExifData::default()`，
 /// 调用方无需处理错误——仅记录警告日志即可。
 pub fn extract(path: &Path) -> Result<ExifData> {
-    let file       = File::open(path)?;
+    let file = File::open(path)?;
     let mut reader = BufReader::new(file);
 
     let exif_reader = exif::Reader::new();
     let exif = match exif_reader.read_from_container(&mut reader) {
-        Ok(e)  => e,
+        Ok(e) => e,
         Err(e) => {
-            tracing::debug!("No EXIF in {:?}: {}", path.file_name().unwrap_or_default(), e);
+            tracing::debug!(
+                "No EXIF in {:?}: {}",
+                path.file_name().unwrap_or_default(),
+                e
+            );
             return Ok(ExifData::default());
         }
     };
 
-    let mut data = ExifData { orientation: 1, ..Default::default() };
+    let mut data = ExifData {
+        orientation: 1,
+        ..Default::default()
+    };
 
     // ── 拍摄时间 ──────────────────────────────────────────
     let dt_field = exif
@@ -109,15 +116,21 @@ pub fn extract(path: &Path) -> Result<ExifData> {
     // ── 相机信息 ──────────────────────────────────────────
     if let Some(f) = exif.get_field(exif::Tag::Make, exif::In::PRIMARY) {
         let v = clean_str(&f.display_value().to_string());
-        if !v.is_empty() { data.camera_make = Some(v); }
+        if !v.is_empty() {
+            data.camera_make = Some(v);
+        }
     }
     if let Some(f) = exif.get_field(exif::Tag::Model, exif::In::PRIMARY) {
         let v = clean_str(&f.display_value().to_string());
-        if !v.is_empty() { data.camera_model = Some(v); }
+        if !v.is_empty() {
+            data.camera_model = Some(v);
+        }
     }
     if let Some(f) = exif.get_field(exif::Tag::LensModel, exif::In::PRIMARY) {
         let v = clean_str(&f.display_value().to_string());
-        if !v.is_empty() { data.lens_model = Some(v); }
+        if !v.is_empty() {
+            data.lens_model = Some(v);
+        }
     }
 
     // ── 曝光参数 ──────────────────────────────────────────
@@ -172,10 +185,7 @@ fn clean_str(s: &str) -> String {
 
 fn normalize_exif_datetime(s: &str) -> String {
     let s = s.trim_matches('"').trim();
-    if s.len() >= 19
-        && s.chars().nth(4) == Some(':')
-        && s.chars().nth(7) == Some(':')
-    {
+    if s.len() >= 19 && s.chars().nth(4) == Some(':') && s.chars().nth(7) == Some(':') {
         let date = &s[0..10].replace(':', "-");
         let time = &s[11..19];
         return format!("{date}T{time}Z");
@@ -185,17 +195,17 @@ fn normalize_exif_datetime(s: &str) -> String {
 
 fn rational_to_f64(value: &exif::Value) -> Option<f64> {
     match value {
-        exif::Value::Rational(ref v)  => v.first().map(|r| r.num as f64 / r.denom as f64),
+        exif::Value::Rational(ref v) => v.first().map(|r| r.num as f64 / r.denom as f64),
         exif::Value::SRational(ref v) => v.first().map(|r| r.num as f64 / r.denom as f64),
-        exif::Value::Float(ref v)     => v.first().copied().map(|f| f as f64),
-        exif::Value::Double(ref v)    => v.first().copied(),
+        exif::Value::Float(ref v) => v.first().copied().map(|f| f as f64),
+        exif::Value::Double(ref v) => v.first().copied(),
         _ => None,
     }
 }
 
 fn parse_u32(value: &exif::Value) -> Option<u32> {
     match value {
-        exif::Value::Long(ref v)  => v.first().copied(),
+        exif::Value::Long(ref v) => v.first().copied(),
         exif::Value::Short(ref v) => v.first().map(|&n| n as u32),
         _ => None,
     }
@@ -210,7 +220,9 @@ fn parse_u32(value: &exif::Value) -> Option<u32> {
 fn format_shutter_speed(field: &exif::Field) -> String {
     if let exif::Value::Rational(ref v) = field.value {
         if let Some(r) = v.first() {
-            if r.num == 0 { return "0".to_string(); }
+            if r.num == 0 {
+                return "0".to_string();
+            }
             if r.denom == 1 {
                 return format!("{}\"", r.num);
             }
@@ -218,8 +230,8 @@ fn format_shutter_speed(field: &exif::Field) -> String {
                 return format!("1/{}", r.denom);
             }
             let gcd = gcd(r.num, r.denom);
-            let n   = r.num   / gcd;
-            let d   = r.denom / gcd;
+            let n = r.num / gcd;
+            let d = r.denom / gcd;
             if n == 1 {
                 return format!("1/{d}");
             }
@@ -231,21 +243,29 @@ fn format_shutter_speed(field: &exif::Field) -> String {
 }
 
 fn gcd(mut a: u32, mut b: u32) -> u32 {
-    while b != 0 { let t = b; b = a % b; a = t; }
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
     a
 }
 
 fn extract_gps_coord(
-    exif:      &exif::Exif,
+    exif: &exif::Exif,
     coord_tag: exif::Tag,
-    ref_tag:   exif::Tag,
-    neg_char:  char,
+    ref_tag: exif::Tag,
+    neg_char: char,
 ) -> Option<f64> {
-    let field     = exif.get_field(coord_tag, exif::In::PRIMARY)?;
-    let ref_field = exif.get_field(ref_tag,   exif::In::PRIMARY)?;
-    let decimal   = dms_to_decimal(&field.value)?;
-    let ref_str   = ref_field.display_value().to_string();
-    let sign      = if ref_str.contains(neg_char) { -1.0_f64 } else { 1.0_f64 };
+    let field = exif.get_field(coord_tag, exif::In::PRIMARY)?;
+    let ref_field = exif.get_field(ref_tag, exif::In::PRIMARY)?;
+    let decimal = dms_to_decimal(&field.value)?;
+    let ref_str = ref_field.display_value().to_string();
+    let sign = if ref_str.contains(neg_char) {
+        -1.0_f64
+    } else {
+        1.0_f64
+    };
     Some((decimal * sign * 1_000_000.0).round() / 1_000_000.0)
 }
 
@@ -268,13 +288,13 @@ fn dms_to_decimal(value: &exif::Value) -> Option<f64> {
 pub fn read_dimensions(path: &Path) -> Option<(u32, u32)> {
     match image::image_dimensions(path) {
         Ok((w, h)) => Some((w, h)),
-        Err(_)     => None,
+        Err(_) => None,
     }
 }
 
 pub fn enrich_dimensions(data: &mut ExifData, path: &Path) {
     if let Some((w, h)) = read_dimensions(path) {
-        data.width  = Some(w);
+        data.width = Some(w);
         data.height = Some(h);
     }
 }
@@ -311,20 +331,20 @@ pub fn file_created_at(path: &Path) -> String {
 
 pub fn normalize_format(ext: &str) -> &'static str {
     match ext.to_lowercase().as_str() {
-        "jpg" | "jpeg"  => "jpeg",
-        "tif" | "tiff"  => "tiff",
-        "heif"          => "heic",
-        "png"           => "png",
-        "webp"          => "webp",
-        "bmp"           => "bmp",
-        "cr2"           => "cr2",
-        "cr3"           => "cr3",
-        "nef"           => "nef",
-        "arw"           => "arw",
-        "dng"           => "dng",
-        "orf"           => "orf",
-        "rw2"           => "rw2",
-        "raf"           => "raf",
-        _               => "unknown",
+        "jpg" | "jpeg" => "jpeg",
+        "tif" | "tiff" => "tiff",
+        "heif" => "heic",
+        "png" => "png",
+        "webp" => "webp",
+        "bmp" => "bmp",
+        "cr2" => "cr2",
+        "cr3" => "cr3",
+        "nef" => "nef",
+        "arw" => "arw",
+        "dng" => "dng",
+        "orf" => "orf",
+        "rw2" => "rw2",
+        "raf" => "raf",
+        _ => "unknown",
     }
 }

@@ -29,8 +29,6 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Instant;
 
 const IDLE_TIMEOUT_SECS: u64 = 30;
-/// Sharp sidecar 可执行文件名（Tauri 会根据目标平台自动加 .exe）
-const SIDECAR_BIN: &str = "sharp-worker";
 
 /// 动态解析 sidecar 二进制路径
 ///
@@ -50,7 +48,11 @@ fn sidecar_binary_path(data_dir: &Path) -> PathBuf {
         }
     }
     // fallback: data_dir 同级
-    data_dir.join(if cfg!(windows) { "sharp-worker.exe" } else { "sharp-worker" })
+    data_dir.join(if cfg!(windows) {
+        "sharp-worker.exe"
+    } else {
+        "sharp-worker"
+    })
 }
 
 // ─────────────────────────────────────────────────────────
@@ -59,33 +61,33 @@ fn sidecar_binary_path(data_dir: &Path) -> PathBuf {
 
 #[derive(Debug, Serialize)]
 struct SidecarRequest {
-    cmd:     String,
-    input:   String,
-    sizes:   Vec<u32>,
+    cmd: String,
+    input: String,
+    sizes: Vec<u32>,
     outputs: Vec<String>,
     quality: u8,
 }
 
 #[derive(Debug, Serialize)]
 struct MetadataRequest {
-    cmd:   String,
+    cmd: String,
     input: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SidecarResponse {
-    pub ok:    bool,
+    pub ok: bool,
     pub error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct MetadataResponse {
-    pub ok:          bool,
-    pub width:       Option<u32>,
-    pub height:      Option<u32>,
+    pub ok: bool,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
     pub orientation: Option<i32>,
-    pub format:      Option<String>,
-    pub error:       Option<String>,
+    pub format: Option<String>,
+    pub error: Option<String>,
 }
 
 // ─────────────────────────────────────────────────────────
@@ -93,9 +95,9 @@ pub struct MetadataResponse {
 // ─────────────────────────────────────────────────────────
 
 pub struct SidecarHandle {
-    process:   Option<Child>,
-    stdin:     Option<ChildStdin>,
-    stdout:    Option<BufReader<ChildStdout>>,
+    process: Option<Child>,
+    stdin: Option<ChildStdin>,
+    stdout: Option<BufReader<ChildStdout>>,
     last_used: Instant,
     /// Tauri 资源目录（用于定位 sidecar 可执行文件）
     resource_dir: PathBuf,
@@ -105,8 +107,8 @@ impl SidecarHandle {
     pub fn new(resource_dir: PathBuf) -> Self {
         Self {
             process: None,
-            stdin:   None,
-            stdout:  None,
+            stdin: None,
+            stdout: None,
             last_used: Instant::now(),
             resource_dir,
         }
@@ -115,9 +117,7 @@ impl SidecarHandle {
     // ── 确保进程运行（懒加载 + 自动重启）──────────────
     fn ensure_running(&mut self) -> Result<()> {
         // 检查空闲超时：超时则终止
-        if self.process.is_some()
-            && self.last_used.elapsed().as_secs() > IDLE_TIMEOUT_SECS
-        {
+        if self.process.is_some() && self.last_used.elapsed().as_secs() > IDLE_TIMEOUT_SECS {
             tracing::info!("Sharp sidecar idle timeout — terminating");
             self.kill();
         }
@@ -128,8 +128,8 @@ impl SidecarHandle {
                 Ok(Some(status)) => {
                     tracing::warn!("Sharp sidecar exited unexpectedly: {status}");
                     self.process = None;
-                    self.stdin   = None;
-                    self.stdout  = None;
+                    self.stdin = None;
+                    self.stdout = None;
                 }
                 Ok(None) => {} // 进程正常运行中
                 Err(e) => {
@@ -162,14 +162,16 @@ impl SidecarHandle {
         let mut child = Command::new(&bin_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())  // 忽略 stderr（避免日志污染）
+            .stderr(Stdio::null()) // 忽略 stderr（避免日志污染）
             .spawn()
             .map_err(|e| AppError::Sidecar(format!("Failed to spawn sidecar: {e}")))?;
 
         self.stdin = child.stdin.take();
-        let raw_out = child.stdout.take()
+        let raw_out = child
+            .stdout
+            .take()
             .ok_or_else(|| AppError::Sidecar("No stdout from sidecar".into()))?;
-        self.stdout  = Some(BufReader::new(raw_out));
+        self.stdout = Some(BufReader::new(raw_out));
         self.process = Some(child);
 
         Ok(())
@@ -179,11 +181,14 @@ impl SidecarHandle {
     fn send_recv(&mut self, json: &str) -> Result<String> {
         // 写入请求（以 \n 结尾）
         if let Some(ref mut stdin) = self.stdin {
-            stdin.write_all(json.as_bytes())
+            stdin
+                .write_all(json.as_bytes())
                 .map_err(|e| AppError::Sidecar(format!("Write to sidecar failed: {e}")))?;
-            stdin.write_all(b"\n")
+            stdin
+                .write_all(b"\n")
                 .map_err(|e| AppError::Sidecar(format!("Write newline failed: {e}")))?;
-            stdin.flush()
+            stdin
+                .flush()
                 .map_err(|e| AppError::Sidecar(format!("Flush to sidecar failed: {e}")))?;
         } else {
             return Err(AppError::Sidecar("Sidecar stdin not available".into()));
@@ -192,7 +197,8 @@ impl SidecarHandle {
         // 读取响应行
         let mut line = String::new();
         if let Some(ref mut stdout) = self.stdout {
-            stdout.read_line(&mut line)
+            stdout
+                .read_line(&mut line)
                 .map_err(|e| AppError::Sidecar(format!("Read from sidecar failed: {e}")))?;
         } else {
             return Err(AppError::Sidecar("Sidecar stdout not available".into()));
@@ -212,18 +218,19 @@ impl SidecarHandle {
     /// - `quality`      WEBP 质量 0-100
     pub fn request_thumbnails(
         &mut self,
-        source:       &Path,
-        sizes:        &[ThumbSize],
+        source: &Path,
+        sizes: &[ThumbSize],
         output_paths: &[PathBuf],
-        quality:      u8,
+        quality: u8,
     ) -> Result<SidecarResponse> {
         self.ensure_running()?;
 
         let req = SidecarRequest {
-            cmd:     "thumbnail".into(),
-            input:   source.to_string_lossy().into_owned(),
-            sizes:   sizes.iter().map(|s| s.pixels()).collect(),
-            outputs: output_paths.iter()
+            cmd: "thumbnail".into(),
+            input: source.to_string_lossy().into_owned(),
+            sizes: sizes.iter().map(|s| s.pixels()).collect(),
+            outputs: output_paths
+                .iter()
                 .map(|p| p.to_string_lossy().into_owned())
                 .collect(),
             quality,
@@ -245,7 +252,7 @@ impl SidecarHandle {
         self.ensure_running()?;
 
         let req = MetadataRequest {
-            cmd:   "metadata".into(),
+            cmd: "metadata".into(),
             input: source.to_string_lossy().into_owned(),
         };
 
@@ -266,12 +273,14 @@ impl SidecarHandle {
             let _ = proc.wait();
         }
         self.process = None;
-        self.stdin   = None;
-        self.stdout  = None;
+        self.stdin = None;
+        self.stdout = None;
         tracing::debug!("Sharp sidecar terminated");
     }
 }
 
 impl Drop for SidecarHandle {
-    fn drop(&mut self) { self.kill(); }
+    fn drop(&mut self) {
+        self.kill();
+    }
 }

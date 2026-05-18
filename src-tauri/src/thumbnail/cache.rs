@@ -26,8 +26,8 @@ use std::sync::{Arc, Mutex};
 //  常量
 // ─────────────────────────────────────────────────────────
 
-pub const DEFAULT_MAX_BYTES:  u64   = 5 * 1024 * 1024 * 1024;  // 5GB
-pub const MAX_INDEX_ENTRIES:  usize = 100_000;
+pub const DEFAULT_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024; // 5GB
+pub const MAX_INDEX_ENTRIES: usize = 100_000;
 
 // ─────────────────────────────────────────────────────────
 //  CacheEntry（不变）
@@ -35,7 +35,7 @@ pub const MAX_INDEX_ENTRIES:  usize = 100_000;
 
 #[derive(Debug, Clone)]
 struct CacheEntry {
-    path:       PathBuf,
+    path: PathBuf,
     size_bytes: u64,
 }
 
@@ -46,21 +46,20 @@ struct CacheEntry {
 pub struct ThumbnailCache {
     /// F-12: 用 lru::LruCache 替代 VecDeque<String> + HashMap<String, CacheEntry>
     /// get() / put() / pop_lru() 均为 O(1) 均摊
-    lru:        LruCache<String, CacheEntry>,
+    lru: LruCache<String, CacheEntry>,
     /// 已使用磁盘字节数
     used_bytes: u64,
     /// 最大磁盘字节数
-    max_bytes:  u64,
+    max_bytes: u64,
     /// 缩略图根目录（用于删除文件）
-    thumb_dir:  PathBuf,
+    thumb_dir: PathBuf,
 }
 
 impl ThumbnailCache {
     pub fn new(thumb_dir: PathBuf, max_bytes: u64) -> Self {
-        let cap = NonZeroUsize::new(MAX_INDEX_ENTRIES)
-            .expect("MAX_INDEX_ENTRIES must be > 0");
+        let cap = NonZeroUsize::new(MAX_INDEX_ENTRIES).expect("MAX_INDEX_ENTRIES must be > 0");
         Self {
-            lru:        LruCache::new(cap),
+            lru: LruCache::new(cap),
             used_bytes: 0,
             max_bytes,
             thumb_dir,
@@ -80,12 +79,10 @@ impl ThumbnailCache {
 
         // lru.get() 自动将 k 移到 MRU 位置（O(1)）
         // 需要先取出 path 检查文件是否存在
-        let path_exists = self.lru.get(&k)
-            .map(|e| e.path.clone())
-            .map(|p| p.exists());
+        let path_exists = self.lru.get(&k).map(|e| e.path.clone()).map(|p| p.exists());
 
         match path_exists {
-            Some(true)  => self.lru.get(&k).map(|e| e.path.as_path()),
+            Some(true) => self.lru.get(&k).map(|e| e.path.as_path()),
             Some(false) => {
                 // 文件被外部删除，清理缓存条目
                 self.remove_entry(&k);
@@ -130,7 +127,9 @@ impl ThumbnailCache {
                 Some((_, entry)) => {
                     self.used_bytes = self.used_bytes.saturating_sub(entry.size_bytes);
                     let _ = std::fs::remove_file(&entry.path);
-                    if self.used_bytes <= target { break; }
+                    if self.used_bytes <= target {
+                        break;
+                    }
                 }
                 None => break,
             }
@@ -146,12 +145,20 @@ impl ThumbnailCache {
 
     // ── 统计 ──────────────────────────────────────────────
 
-    pub fn used_bytes(&self)   -> u64   { self.used_bytes }
-    pub fn max_bytes(&self)    -> u64   { self.max_bytes  }
-    pub fn entry_count(&self)  -> usize { self.lru.len()  }
+    pub fn used_bytes(&self) -> u64 {
+        self.used_bytes
+    }
+    pub fn max_bytes(&self) -> u64 {
+        self.max_bytes
+    }
+    pub fn entry_count(&self) -> usize {
+        self.lru.len()
+    }
 
     pub fn usage_percent(&self) -> f64 {
-        if self.max_bytes == 0 { return 0.0; }
+        if self.max_bytes == 0 {
+            return 0.0;
+        }
         (self.used_bytes as f64 / self.max_bytes as f64 * 100.0).min(100.0)
     }
 
@@ -162,7 +169,9 @@ impl ThumbnailCache {
         if let Ok(read) = std::fs::read_dir(&self.thumb_dir) {
             for bucket in read.flatten() {
                 let bucket_path = bucket.path();
-                if !bucket_path.is_dir() { continue; }
+                if !bucket_path.is_dir() {
+                    continue;
+                }
                 if let Ok(files) = std::fs::read_dir(&bucket_path) {
                     for file in files.flatten() {
                         total += file.metadata().map(|m| m.len()).unwrap_or(0);

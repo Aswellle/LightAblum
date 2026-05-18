@@ -7,8 +7,8 @@
 // free functions in `db::photo` and `db::search`, holding only
 // an Arc<DbPool> so it is cheaply cloneable and Send + Sync.
 
-use crate::db::photo::{Photo, PhotoPage, NewPhoto};
-use crate::db::search::{SearchQuery, SearchSuggestions, LibraryStats};
+use crate::db::photo::{NewPhoto, Photo, PhotoPage};
+use crate::db::search::{LibraryStats, SearchQuery, SearchSuggestions};
 use crate::error::Result;
 use crate::query::filter::PhotoFilter;
 use crate::state::DbPool;

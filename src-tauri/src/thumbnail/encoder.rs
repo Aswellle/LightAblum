@@ -28,18 +28,11 @@
 
 use crate::error::Result;
 use crate::thumbnail::ThumbSize;
-use image::{DynamicImage, ImageReader, imageops::FilterType};
+use image::{imageops::FilterType, DynamicImage, ImageReader};
 use std::path::Path;
 
 /// native image crate 支持的格式扩展名
-pub const NATIVE_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg",
-    "png",
-    "webp",
-    "bmp",
-    "tiff", "tif",
-    "gif",
-];
+pub const NATIVE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "bmp", "tiff", "tif", "gif"];
 
 pub fn is_native_format(path: &Path) -> bool {
     path.extension()
@@ -51,49 +44,37 @@ pub fn is_native_format(path: &Path) -> bool {
 /// 打开图片并按实际内容格式解码（不依赖扩展名）
 fn open_image(source: &Path) -> Result<DynamicImage> {
     let reader = ImageReader::open(source)
-        .map_err(|e| crate::error::AppError::Image(
-            image::ImageError::IoError(e)
-        ))?
+        .map_err(|e| crate::error::AppError::Image(image::ImageError::IoError(e)))?
         .with_guessed_format()
-        .map_err(|e| crate::error::AppError::Image(
-            image::ImageError::IoError(e)
-        ))?;
+        .map_err(|e| crate::error::AppError::Image(image::ImageError::IoError(e)))?;
 
-    reader.decode()
-        .map_err(|e| crate::error::AppError::Image(e))
+    reader.decode().map_err(crate::error::AppError::Image)
 }
 
 /// 生成单个尺寸的缩略图，返回 WEBP 字节
 ///
 /// S/M 尺寸：resize_cover（正方形裁切，网格视图统一外观）
 /// L 尺寸  ：resize_contain（等比缩放不裁剪，保留原始宽高比供大图预览）
-pub fn generate_thumbnail(
-    source:  &Path,
-    size:    ThumbSize,
-    quality: u8,
-) -> Result<Vec<u8>> {
+pub fn generate_thumbnail(source: &Path, size: ThumbSize, quality: u8) -> Result<Vec<u8>> {
     let img = open_image(source)?;
     let resized = match size {
-        ThumbSize::L => resize_contain(&img, size.pixels()),  // 修复：L 用 contain
-        _            => resize_cover(&img, size.pixels()),    // S/M 保持 cover（正方形）
+        ThumbSize::L => resize_contain(&img, size.pixels()), // 修复：L 用 contain
+        _ => resize_cover(&img, size.pixels()),              // S/M 保持 cover（正方形）
     };
     encode_webp(&resized, quality)
 }
 
 /// 将两种尺寸一次解码、两次 resize，避免重复 IO
 /// S + M 均为网格用途，保持 resize_cover（正方形裁切）
-pub fn generate_thumbnails_pair(
-    source:  &Path,
-    quality: u8,
-) -> Result<(Vec<u8>, Vec<u8>)> {
+pub fn generate_thumbnails_pair(source: &Path, quality: u8) -> Result<(Vec<u8>, Vec<u8>)> {
     let img = open_image(source)?;
 
     // S/M 均用 cover（正方形），网格视图需要统一尺寸
     let medium = resize_cover(&img, ThumbSize::M.pixels());
-    let small  = resize_cover(&medium, ThumbSize::S.pixels());
+    let small = resize_cover(&medium, ThumbSize::S.pixels());
 
     let bytes_m = encode_webp(&medium, quality)?;
-    let bytes_s = encode_webp(&small,  quality)?;
+    let bytes_s = encode_webp(&small, quality)?;
 
     Ok((bytes_s, bytes_m))
 }
@@ -111,7 +92,9 @@ pub fn generate_thumbnails_pair(
 /// 输出始终为 target × target，图片内容最大化填充。
 fn resize_cover(img: &DynamicImage, target: u32) -> DynamicImage {
     let (w, h) = (img.width(), img.height());
-    if w == 0 || h == 0 { return img.clone(); }
+    if w == 0 || h == 0 {
+        return img.clone();
+    }
 
     // 短边对齐 target
     let (nw, nh) = if w <= h {
@@ -144,7 +127,9 @@ fn resize_cover(img: &DynamicImage, target: u32) -> DynamicImage {
 ///   按原始宽高比显示完整图片。
 fn resize_contain(img: &DynamicImage, target: u32) -> DynamicImage {
     let (w, h) = (img.width(), img.height());
-    if w == 0 || h == 0 { return img.clone(); }
+    if w == 0 || h == 0 {
+        return img.clone();
+    }
 
     // 长边对齐 target，短边等比缩小
     let (nw, nh) = if w >= h {
@@ -158,8 +143,8 @@ fn resize_contain(img: &DynamicImage, target: u32) -> DynamicImage {
 
 /// WEBP 编码（使用 webp crate）
 fn encode_webp(img: &DynamicImage, quality: u8) -> Result<Vec<u8>> {
-    let rgba    = img.to_rgba8();
-    let (w, h)  = rgba.dimensions();
+    let rgba = img.to_rgba8();
+    let (w, h) = rgba.dimensions();
     let encoder = webp::Encoder::from_rgba(&rgba, w, h);
     let encoded = encoder.encode(quality as f32);
     Ok(encoded.to_vec())

@@ -26,7 +26,7 @@
 
 use crate::db;
 use crate::error::{AppError, Result};
-use crate::thumbnail::{self, ThumbSize, cache::SharedCache, encoder, sidecar::SidecarHandle};
+use crate::thumbnail::{self, cache::SharedCache, encoder, sidecar::SidecarHandle, ThumbSize};
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -49,10 +49,10 @@ pub enum Priority {
 
 #[derive(Debug, Clone)]
 pub struct PipelineTask {
-    pub photo_id:  String,
+    pub photo_id: String,
     pub file_path: String,
     pub file_hash: String,
-    pub priority:  Priority,
+    pub priority: Priority,
     /// 是否需要生成 L 尺寸（大图预览请求时才需要）
     pub need_large: bool,
 }
@@ -66,16 +66,22 @@ const WEBP_QUALITY: u8 = 85;
 
 pub struct ThumbnailPipeline {
     /// 高优先级通道（容量较小，快速响应）
-    high_tx:   Sender<PipelineTask>,
-    high_rx:   Receiver<PipelineTask>,
+    high_tx: Sender<PipelineTask>,
+    high_rx: Receiver<PipelineTask>,
     /// 普通优先级通道
     normal_tx: Sender<PipelineTask>,
     normal_rx: Receiver<PipelineTask>,
     /// 低优先级通道（后台批量）
-    low_tx:    Sender<PipelineTask>,
-    low_rx:    Receiver<PipelineTask>,
+    low_tx: Sender<PipelineTask>,
+    low_rx: Receiver<PipelineTask>,
     /// 去重集合（避免同一张图重复入队）
-    pending:   Arc<Mutex<HashSet<String>>>,
+    pending: Arc<Mutex<HashSet<String>>>,
+}
+
+impl Default for ThumbnailPipeline {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ThumbnailPipeline {
@@ -84,24 +90,29 @@ impl ThumbnailPipeline {
         let (nt, nr) = bounded(2_000);
         let (lt, lr) = bounded(QUEUE_CAP);
         Self {
-            high_tx:   ht, high_rx:   hr,
-            normal_tx: nt, normal_rx: nr,
-            low_tx:    lt, low_rx:    lr,
-            pending:   Arc::new(Mutex::new(HashSet::new())),
+            high_tx: ht,
+            high_rx: hr,
+            normal_tx: nt,
+            normal_rx: nr,
+            low_tx: lt,
+            low_rx: lr,
+            pending: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
     /// 将任务加入优先级队列（去重）
     pub fn enqueue(&self, task: PipelineTask) -> bool {
         let mut pending = self.pending.lock().unwrap();
-        if pending.contains(&task.photo_id) { return false; } // 已在队中
+        if pending.contains(&task.photo_id) {
+            return false;
+        } // 已在队中
         pending.insert(task.photo_id.clone());
         drop(pending);
 
         let result = match task.priority {
-            Priority::High   => self.high_tx.try_send(task),
+            Priority::High => self.high_tx.try_send(task),
             Priority::Normal => self.normal_tx.try_send(task),
-            Priority::Low    => self.low_tx.try_send(task),
+            Priority::Low => self.low_tx.try_send(task),
         };
 
         match result {
@@ -121,12 +132,15 @@ impl ThumbnailPipeline {
     pub fn enqueue_batch(
         &self,
         photo_ids: &[String],
-        priority:  Priority,
-        db:        &crate::state::DbPool,
+        priority: Priority,
+        db: &crate::state::DbPool,
     ) {
         let conn = match db.get() {
-            Ok(c)  => c,
-            Err(e) => { tracing::error!("enqueue_batch: DB pool: {e}"); return; }
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("enqueue_batch: DB pool: {e}");
+                return;
+            }
         };
         for id in photo_ids {
             if let Ok(Some(p)) = db::photo::get_by_id(&conn, id) {
@@ -135,23 +149,14 @@ impl ThumbnailPipeline {
                     continue; // 已生成，跳过
                 }
                 self.enqueue(PipelineTask {
-                    photo_id:   id.clone(),
-                    file_path:  p.file_path,
-                    file_hash:  p.file_hash,
+                    photo_id: id.clone(),
+                    file_path: p.file_path,
+                    file_hash: p.file_hash,
                     priority,
                     need_large: false,
                 });
             }
         }
-    }
-
-    /// 按优先级顺序取下一个任务（High → Normal → Low）
-    fn recv_next(&self) -> Option<PipelineTask> {
-        // 尝试三个通道，按优先级降序
-        self.high_rx.try_recv()
-            .or_else(|_| self.normal_rx.try_recv())
-            .or_else(|_| self.low_rx.try_recv())
-            .ok()
     }
 
     /// 任务完成后从 pending 集合中移除
@@ -171,9 +176,15 @@ impl ThumbnailPipeline {
     /// 且保留定期唤醒能力（用于未来可能的健康检查、优雅退出等）。
     fn recv_blocking(&self, timeout: Duration) -> Option<PipelineTask> {
         // ① 优先非阻塞取高优先级（维持 High > Normal > Low 顺序）
-        if let Ok(task) = self.high_rx.try_recv()   { return Some(task); }
-        if let Ok(task) = self.normal_rx.try_recv() { return Some(task); }
-        if let Ok(task) = self.low_rx.try_recv()    { return Some(task); }
+        if let Ok(task) = self.high_rx.try_recv() {
+            return Some(task);
+        }
+        if let Ok(task) = self.normal_rx.try_recv() {
+            return Some(task);
+        }
+        if let Ok(task) = self.low_rx.try_recv() {
+            return Some(task);
+        }
 
         // ② 三通道均空 → select! 阻塞等待，直到任一通道有消息或超时
         //    注意：select! 不保证优先级（随机公平），但此时队列为空，
@@ -203,12 +214,12 @@ impl ThumbnailPipeline {
 /// - `worker_count`：工作线程数（建议 min(cpu_count, 4)）
 /// - 返回 `Arc<ThumbnailPipeline>`，调用方持有用于入队
 pub fn start_workers(
-    pipeline:   Arc<ThumbnailPipeline>,
-    db:         crate::state::DbPool,
-    thumb_dir:  PathBuf,
-    cache:      SharedCache,
-    sidecar:    Arc<Mutex<SidecarHandle>>,
-    app:        AppHandle,
+    pipeline: Arc<ThumbnailPipeline>,
+    db: crate::state::DbPool,
+    thumb_dir: PathBuf,
+    cache: SharedCache,
+    sidecar: Arc<Mutex<SidecarHandle>>,
+    app: AppHandle,
     worker_count: usize,
 ) {
     let pool = rayon::ThreadPoolBuilder::new()
@@ -220,10 +231,10 @@ pub fn start_workers(
     // 将 pool 移入后台 std::thread，pool 本身阻塞等待任务
     let pipeline_clone = Arc::clone(&pipeline);
     let db_clone = db.clone();
-    let thumb_dir_c    = thumb_dir.clone();
-    let cache_c        = Arc::clone(&cache);
-    let sidecar_c      = Arc::clone(&sidecar);
-    let app_c          = app.clone();
+    let thumb_dir_c = thumb_dir.clone();
+    let cache_c = Arc::clone(&cache);
+    let sidecar_c = Arc::clone(&sidecar);
+    let app_c = app.clone();
 
     std::thread::Builder::new()
         .name("thumb-dispatcher".into())
@@ -237,19 +248,21 @@ pub fn start_workers(
                 //   - 5s 超时后循环继续（保留定期唤醒点）
                 let task = match pipeline_clone.recv_blocking(Duration::from_secs(5)) {
                     Some(t) => t,
-                    None    => continue,  // timeout，继续等待
+                    None => continue, // timeout，继续等待
                 };
 
-                let photo_id   = task.photo_id.clone();
+                let photo_id = task.photo_id.clone();
                 let db_t = db_clone.clone();
-                let thumb_t    = thumb_dir_c.clone();
-                let cache_t    = Arc::clone(&cache_c);
-                let sidecar_t  = Arc::clone(&sidecar_c);
-                let app_t      = app_c.clone();
+                let thumb_t = thumb_dir_c.clone();
+                let cache_t = Arc::clone(&cache_c);
+                let sidecar_t = Arc::clone(&sidecar_c);
+                let app_t = app_c.clone();
                 let pipeline_t = Arc::clone(&pipeline_clone);
 
                 pool.spawn(move || {
-                    if let Err(e) = process_task(&task, &db_t, &thumb_t, &cache_t, &sidecar_t, &app_t) {
+                    if let Err(e) =
+                        process_task(&task, &db_t, &thumb_t, &cache_t, &sidecar_t, &app_t)
+                    {
                         tracing::warn!("Thumbnail task failed for {}: {e}", task.photo_id);
                     }
                     pipeline_t.task_done(&photo_id);
@@ -264,20 +277,20 @@ pub fn start_workers(
 // ─────────────────────────────────────────────────────────
 
 fn process_task(
-    task:      &PipelineTask,
-    db:        &crate::state::DbPool,
-    thumb_dir: &PathBuf,
-    cache:     &SharedCache,
-    sidecar:   &Arc<Mutex<SidecarHandle>>,
-    app:       &AppHandle,
+    task: &PipelineTask,
+    db: &crate::state::DbPool,
+    thumb_dir: &std::path::Path,
+    cache: &SharedCache,
+    sidecar: &Arc<Mutex<SidecarHandle>>,
+    app: &AppHandle,
 ) -> Result<()> {
     let source = std::path::Path::new(&task.file_path);
 
     // ── 构建输出路径 ──
-    let _bucket   = thumbnail::ensure_bucket_dir(thumb_dir, &task.file_hash)?;
-    let path_s    = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::S);
-    let path_m    = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::M);
-    let path_l    = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::L);
+    let _bucket = thumbnail::ensure_bucket_dir(thumb_dir, &task.file_hash)?;
+    let path_s = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::S);
+    let path_m = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::M);
+    let path_l = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::L);
 
     // ── 检查缓存（已存在则更新 DB 后直接返回）──
     let s_exists = path_s.exists();
@@ -294,7 +307,7 @@ fn process_task(
 
     if needs_sidecar {
         // HEIC / RAW → Sharp sidecar
-        let mut sizes   = vec![ThumbSize::S, ThumbSize::M];
+        let mut sizes = vec![ThumbSize::S, ThumbSize::M];
         let mut outputs = vec![path_s.clone(), path_m.clone()];
 
         if task.need_large {
@@ -303,11 +316,11 @@ fn process_task(
         }
 
         let mut sc = sidecar.lock().unwrap();
-        let resp   = sc.request_thumbnails(source, &sizes, &outputs, WEBP_QUALITY)?;
+        let resp = sc.request_thumbnails(source, &sizes, &outputs, WEBP_QUALITY)?;
 
         if !resp.ok {
             return Err(AppError::Sidecar(
-                resp.error.unwrap_or_else(|| "Unknown sidecar error".into())
+                resp.error.unwrap_or_else(|| "Unknown sidecar error".into()),
             ));
         }
     } else {
@@ -344,14 +357,20 @@ fn process_task(
     }
 
     // ── 发送 thumb:ready 事件 ──
-    let _ = app.emit("thumb:ready", serde_json::json!({
-        "photoId": task.photo_id,
-        "size":    "s",
-    }));
-    let _ = app.emit("thumb:ready", serde_json::json!({
-        "photoId": task.photo_id,
-        "size":    "m",
-    }));
+    let _ = app.emit(
+        "thumb:ready",
+        serde_json::json!({
+            "photoId": task.photo_id,
+            "size":    "s",
+        }),
+    );
+    let _ = app.emit(
+        "thumb:ready",
+        serde_json::json!({
+            "photoId": task.photo_id,
+            "size":    "m",
+        }),
+    );
 
     tracing::debug!("Thumbnail done: {}", task.photo_id);
     Ok(())
@@ -362,13 +381,15 @@ fn process_task(
 // ─────────────────────────────────────────────────────────
 
 fn update_db_thumbnails(
-    db:       &crate::state::DbPool,
+    db: &crate::state::DbPool,
     photo_id: &str,
-    path_s:   &std::path::Path,
-    path_m:   &std::path::Path,
-    path_l:   Option<&std::path::Path>,
+    path_s: &std::path::Path,
+    path_m: &std::path::Path,
+    path_l: Option<&std::path::Path>,
 ) -> Result<()> {
-    let conn = db.get().map_err(|e| AppError::Other(format!("DB pool: {e}")))?;
+    let conn = db
+        .get()
+        .map_err(|e| AppError::Other(format!("DB pool: {e}")))?;
     // ✅ 修复 E0515（cannot return value referencing temporary value）：
     //    原代码 path_l.map(|p| p.to_string_lossy().as_ref()).as_deref() 中，
     //    to_string_lossy() 返回 Cow<str>，.as_ref() 借用了该临时值，
@@ -391,47 +412,51 @@ fn update_db_thumbnails(
 // ─────────────────────────────────────────────────────────
 
 /// 将所有未生成缩略图的照片加入 Low 优先级队列
-pub fn enqueue_pending_all(
-    pipeline:  &ThumbnailPipeline,
-    db:        &crate::state::DbPool,
-) {
+pub fn enqueue_pending_all(pipeline: &ThumbnailPipeline, db: &crate::state::DbPool) {
     let conn = match db.get() {
-        Ok(c)  => c,
-        Err(e) => { tracing::error!("enqueue_pending_all: DB pool: {e}"); return; }
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("enqueue_pending_all: DB pool: {e}");
+            return;
+        }
     };
     let mut stmt: rusqlite::Statement<'_> = match conn.prepare(
         "SELECT id, file_path, file_hash FROM photos \
          WHERE is_deleted = 0 \
            AND (thumbnail_s IS NULL OR thumbnail_m IS NULL) \
          ORDER BY imported_at DESC \
-         LIMIT 5000"
+         LIMIT 5000",
     ) {
-        Ok(s)  => s,
-        Err(e) => { tracing::error!("Failed to prepare pending query: {e}"); return; }
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!("Failed to prepare pending query: {e}");
+            return;
+        }
     };
 
     let count = std::cell::Cell::new(0u64);
 
-    let _ = stmt.query_map([], |row: &rusqlite::Row<'_>| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })
-    .map(|rows: rusqlite::MappedRows<'_, _>| {
-        for row in rows.flatten() {
-            let (id, file_path, file_hash) = row;
-            pipeline.enqueue(PipelineTask {
-                photo_id:  id,
-                file_path,
-                file_hash,
-                priority:  Priority::Low,
-                need_large:false,
-            });
-            count.set(count.get() + 1);
-        }
-    });
+    let _ = stmt
+        .query_map([], |row: &rusqlite::Row<'_>| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map(|rows: rusqlite::MappedRows<'_, _>| {
+            for row in rows.flatten() {
+                let (id, file_path, file_hash) = row;
+                pipeline.enqueue(PipelineTask {
+                    photo_id: id,
+                    file_path,
+                    file_hash,
+                    priority: Priority::Low,
+                    need_large: false,
+                });
+                count.set(count.get() + 1);
+            }
+        });
 
     tracing::info!("Enqueued {} photos for thumbnail generation", count.get());
 }

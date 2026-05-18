@@ -27,7 +27,7 @@
 
 use crate::error::{AppError, Result};
 use crate::query::filter::PhotoFilter;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -40,36 +40,36 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Photo {
-    pub id:            String,
-    pub file_path:     String,
-    pub file_name:     String,
-    pub file_size:     i64,
-    pub file_hash:     String,
-    pub width:         i32,
-    pub height:        i32,
-    pub orientation:   i32,
-    pub format:        String,
-    pub created_at:    String,
-    pub modified_at:   String,
-    pub imported_at:   String,
-    pub folder_path:   String,
-    pub gps_lat:       Option<f64>,
-    pub gps_lng:       Option<f64>,
-    pub camera_make:   Option<String>,
-    pub camera_model:  Option<String>,
-    pub lens_model:    Option<String>,
-    pub focal_length:  Option<f64>,
-    pub aperture:      Option<f64>,
+    pub id: String,
+    pub file_path: String,
+    pub file_name: String,
+    pub file_size: i64,
+    pub file_hash: String,
+    pub width: i32,
+    pub height: i32,
+    pub orientation: i32,
+    pub format: String,
+    pub created_at: String,
+    pub modified_at: String,
+    pub imported_at: String,
+    pub folder_path: String,
+    pub gps_lat: Option<f64>,
+    pub gps_lng: Option<f64>,
+    pub camera_make: Option<String>,
+    pub camera_model: Option<String>,
+    pub lens_model: Option<String>,
+    pub focal_length: Option<f64>,
+    pub aperture: Option<f64>,
     pub shutter_speed: Option<String>,
-    pub iso:           Option<i32>,
+    pub iso: Option<i32>,
     pub exposure_comp: Option<f64>,
-    pub is_favorite:   bool,
-    pub is_deleted:    bool,
-    pub deleted_at:    Option<String>,
-    pub rating:        i32,
-    pub thumbnail_s:   Option<String>,
-    pub thumbnail_m:   Option<String>,
-    pub thumbnail_l:   Option<String>,
+    pub is_favorite: bool,
+    pub is_deleted: bool,
+    pub deleted_at: Option<String>,
+    pub rating: i32,
+    pub thumbnail_s: Option<String>,
+    pub thumbnail_m: Option<String>,
+    pub thumbnail_l: Option<String>,
 }
 
 /// 网格视图精简型（F-05 新增）
@@ -78,24 +78,23 @@ pub struct Photo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PhotoThumb {
-    pub id:          String,
-    pub file_name:   String,
-    pub width:       i32,
-    pub height:      i32,
+    pub id: String,
+    pub file_name: String,
+    pub width: i32,
+    pub height: i32,
     pub orientation: i32,
-    pub created_at:  String,
+    pub created_at: String,
     pub is_favorite: bool,
-    pub is_deleted:  bool,
+    pub is_deleted: bool,
     pub thumbnail_s: Option<String>,
     pub thumbnail_m: Option<String>,
-    pub format:      String,
+    pub format: String,
     pub folder_path: String,
 }
 
 /// F-05：12 字段精简投影 SQL（被 query_paged / search / album_photos_list 共用）
 /// file_size 和 imported_at 额外追加，供游标构建使用，不进入 PhotoThumb
-pub const PHOTO_THUMB_SELECT: &str =
-    "p.id, p.file_name, p.width, p.height, p.orientation, \
+pub const PHOTO_THUMB_SELECT: &str = "p.id, p.file_name, p.width, p.height, p.orientation, \
      p.created_at, p.is_favorite, p.is_deleted, \
      p.thumbnail_s, p.thumbnail_m, p.format, p.folder_path, \
      p.file_size, p.imported_at";
@@ -104,34 +103,34 @@ pub const PHOTO_THUMB_SELECT: &str =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PhotoPage {
-    pub items:       Vec<PhotoThumb>,
+    pub items: Vec<PhotoThumb>,
     pub next_cursor: Option<String>,
-    pub total:       i64,
+    pub total: i64,
 }
 
 /// 插入新照片的数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewPhoto {
-    pub file_path:     String,
-    pub file_name:     String,
-    pub file_size:     i64,
-    pub file_hash:     String,
-    pub width:         i32,
-    pub height:        i32,
-    pub orientation:   i32,
-    pub format:        String,
-    pub created_at:    String,
-    pub modified_at:   String,
-    pub folder_path:   String,
-    pub gps_lat:       Option<f64>,
-    pub gps_lng:       Option<f64>,
-    pub camera_make:   Option<String>,
-    pub camera_model:  Option<String>,
-    pub lens_model:    Option<String>,
-    pub focal_length:  Option<f64>,
-    pub aperture:      Option<f64>,
+    pub file_path: String,
+    pub file_name: String,
+    pub file_size: i64,
+    pub file_hash: String,
+    pub width: i32,
+    pub height: i32,
+    pub orientation: i32,
+    pub format: String,
+    pub created_at: String,
+    pub modified_at: String,
+    pub folder_path: String,
+    pub gps_lat: Option<f64>,
+    pub gps_lng: Option<f64>,
+    pub camera_make: Option<String>,
+    pub camera_model: Option<String>,
+    pub lens_model: Option<String>,
+    pub focal_length: Option<f64>,
+    pub aperture: Option<f64>,
     pub shutter_speed: Option<String>,
-    pub iso:           Option<i32>,
+    pub iso: Option<i32>,
     pub exposure_comp: Option<f64>,
 }
 
@@ -142,36 +141,36 @@ pub struct NewPhoto {
 /// 完整 Photo 行映射（SELECT * 查询使用）
 pub fn row_to_photo(row: &rusqlite::Row<'_>) -> rusqlite::Result<Photo> {
     Ok(Photo {
-        id:            row.get("id")?,
-        file_path:     row.get("file_path")?,
-        file_name:     row.get("file_name")?,
-        file_size:     row.get("file_size")?,
-        file_hash:     row.get("file_hash")?,
-        width:         row.get("width")?,
-        height:        row.get("height")?,
-        orientation:   row.get::<_, Option<i32>>("orientation")?.unwrap_or(1),
-        format:        row.get("format")?,
-        created_at:    row.get("created_at")?,
-        modified_at:   row.get("modified_at")?,
-        imported_at:   row.get("imported_at")?,
-        folder_path:   row.get("folder_path")?,
-        gps_lat:       row.get("gps_lat")?,
-        gps_lng:       row.get("gps_lng")?,
-        camera_make:   row.get("camera_make")?,
-        camera_model:  row.get("camera_model")?,
-        lens_model:    row.get::<_, Option<String>>("lens_model").unwrap_or(None),
-        focal_length:  row.get("focal_length")?,
-        aperture:      row.get("aperture")?,
+        id: row.get("id")?,
+        file_path: row.get("file_path")?,
+        file_name: row.get("file_name")?,
+        file_size: row.get("file_size")?,
+        file_hash: row.get("file_hash")?,
+        width: row.get("width")?,
+        height: row.get("height")?,
+        orientation: row.get::<_, Option<i32>>("orientation")?.unwrap_or(1),
+        format: row.get("format")?,
+        created_at: row.get("created_at")?,
+        modified_at: row.get("modified_at")?,
+        imported_at: row.get("imported_at")?,
+        folder_path: row.get("folder_path")?,
+        gps_lat: row.get("gps_lat")?,
+        gps_lng: row.get("gps_lng")?,
+        camera_make: row.get("camera_make")?,
+        camera_model: row.get("camera_model")?,
+        lens_model: row.get::<_, Option<String>>("lens_model").unwrap_or(None),
+        focal_length: row.get("focal_length")?,
+        aperture: row.get("aperture")?,
         shutter_speed: row.get("shutter_speed")?,
-        iso:           row.get("iso")?,
+        iso: row.get("iso")?,
         exposure_comp: row.get::<_, Option<f64>>("exposure_comp").unwrap_or(None),
-        is_favorite:   row.get::<_, i32>("is_favorite")? != 0,
-        is_deleted:    row.get::<_, i32>("is_deleted")? != 0,
-        deleted_at:    row.get("deleted_at")?,
-        rating:        row.get::<_, Option<i32>>("rating")?.unwrap_or(0),
-        thumbnail_s:   row.get("thumbnail_s")?,
-        thumbnail_m:   row.get("thumbnail_m")?,
-        thumbnail_l:   row.get("thumbnail_l")?,
+        is_favorite: row.get::<_, i32>("is_favorite")? != 0,
+        is_deleted: row.get::<_, i32>("is_deleted")? != 0,
+        deleted_at: row.get("deleted_at")?,
+        rating: row.get::<_, Option<i32>>("rating")?.unwrap_or(0),
+        thumbnail_s: row.get("thumbnail_s")?,
+        thumbnail_m: row.get("thumbnail_m")?,
+        thumbnail_l: row.get("thumbnail_l")?,
     })
 }
 
@@ -179,17 +178,17 @@ pub fn row_to_photo(row: &rusqlite::Row<'_>) -> rusqlite::Result<Photo> {
 /// 通过列名访问，与列顺序无关，安全
 pub fn row_to_photo_thumb(row: &rusqlite::Row<'_>) -> rusqlite::Result<PhotoThumb> {
     Ok(PhotoThumb {
-        id:          row.get("id")?,
-        file_name:   row.get("file_name")?,
-        width:       row.get("width")?,
-        height:      row.get("height")?,
+        id: row.get("id")?,
+        file_name: row.get("file_name")?,
+        width: row.get("width")?,
+        height: row.get("height")?,
         orientation: row.get::<_, Option<i32>>("orientation")?.unwrap_or(1),
-        created_at:  row.get("created_at")?,
+        created_at: row.get("created_at")?,
         is_favorite: row.get::<_, i32>("is_favorite")? != 0,
-        is_deleted:  row.get::<_, i32>("is_deleted")? != 0,
+        is_deleted: row.get::<_, i32>("is_deleted")? != 0,
         thumbnail_s: row.get("thumbnail_s")?,
         thumbnail_m: row.get("thumbnail_m")?,
-        format:      row.get("format")?,
+        format: row.get("format")?,
         folder_path: row.get("folder_path")?,
     })
 }
@@ -218,11 +217,27 @@ pub fn insert_batch(conn: &Connection, photos: &[NewPhoto]) -> Result<usize> {
                 ?18, ?19, ?20, ?21, ?22)"#,
             params![
                 Uuid::new_v4().to_string(),
-                p.file_path, p.file_name, p.file_size, p.file_hash,
-                p.width, p.height, p.orientation, p.format,
-                p.created_at, p.modified_at, p.folder_path,
-                p.gps_lat, p.gps_lng, p.camera_make, p.camera_model, p.lens_model,
-                p.focal_length, p.aperture, p.shutter_speed, p.iso, p.exposure_comp,
+                p.file_path,
+                p.file_name,
+                p.file_size,
+                p.file_hash,
+                p.width,
+                p.height,
+                p.orientation,
+                p.format,
+                p.created_at,
+                p.modified_at,
+                p.folder_path,
+                p.gps_lat,
+                p.gps_lng,
+                p.camera_make,
+                p.camera_model,
+                p.lens_model,
+                p.focal_length,
+                p.aperture,
+                p.shutter_speed,
+                p.iso,
+                p.exposure_comp,
             ],
         )?;
         inserted += rows;
@@ -244,13 +259,22 @@ pub fn update_metadata(conn: &Connection, file_path: &str, p: &NewPhoto) -> Resu
             iso = ?15, exposure_comp = ?16
            WHERE file_path = ?17 AND is_deleted = 0"#,
         params![
-            p.file_size, p.file_hash,
-            p.width, p.height, p.orientation,
+            p.file_size,
+            p.file_hash,
+            p.width,
+            p.height,
+            p.orientation,
             p.modified_at,
-            p.gps_lat, p.gps_lng,
-            p.camera_make, p.camera_model, p.lens_model,
-            p.focal_length, p.aperture, p.shutter_speed,
-            p.iso, p.exposure_comp,
+            p.gps_lat,
+            p.gps_lng,
+            p.camera_make,
+            p.camera_model,
+            p.lens_model,
+            p.focal_length,
+            p.aperture,
+            p.shutter_speed,
+            p.iso,
+            p.exposure_comp,
             file_path,
         ],
     )?;
@@ -259,7 +283,9 @@ pub fn update_metadata(conn: &Connection, file_path: &str, p: &NewPhoto) -> Resu
 
 /// 批量更新 EXIF 元数据（F-06: 供 scan.rs to_update 循环使用）
 pub fn update_metadata_batch(conn: &Connection, photos: &[NewPhoto]) -> Result<usize> {
-    if photos.is_empty() { return Ok(0); }
+    if photos.is_empty() {
+        return Ok(0);
+    }
     let tx = conn.unchecked_transaction()?;
     let mut updated = 0usize;
     for p in photos {
@@ -274,13 +300,22 @@ pub fn update_metadata_batch(conn: &Connection, photos: &[NewPhoto]) -> Result<u
                 iso = ?15, exposure_comp = ?16
                WHERE file_path = ?17 AND is_deleted = 0"#,
             params![
-                p.file_size, p.file_hash,
-                p.width, p.height, p.orientation,
+                p.file_size,
+                p.file_hash,
+                p.width,
+                p.height,
+                p.orientation,
                 p.modified_at,
-                p.gps_lat, p.gps_lng,
-                p.camera_make, p.camera_model, p.lens_model,
-                p.focal_length, p.aperture, p.shutter_speed,
-                p.iso, p.exposure_comp,
+                p.gps_lat,
+                p.gps_lng,
+                p.camera_make,
+                p.camera_model,
+                p.lens_model,
+                p.focal_length,
+                p.aperture,
+                p.shutter_speed,
+                p.iso,
+                p.exposure_comp,
                 p.file_path,
             ],
         )?;
@@ -302,7 +337,9 @@ pub fn set_favorite(conn: &Connection, id: &str, fav: bool) -> Result<()> {
 }
 
 pub fn set_favorite_batch(conn: &Connection, ids: &[String], fav: bool) -> Result<()> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for id in ids {
         tx.execute(
@@ -315,7 +352,9 @@ pub fn set_favorite_batch(conn: &Connection, ids: &[String], fav: bool) -> Resul
 }
 
 pub fn soft_delete(conn: &Connection, ids: &[String]) -> Result<()> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for id in ids {
         tx.execute(
@@ -329,7 +368,9 @@ pub fn soft_delete(conn: &Connection, ids: &[String]) -> Result<()> {
 }
 
 pub fn restore(conn: &Connection, ids: &[String]) -> Result<()> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for id in ids {
         tx.execute(
@@ -342,7 +383,9 @@ pub fn restore(conn: &Connection, ids: &[String]) -> Result<()> {
 }
 
 pub fn purge(conn: &Connection, ids: &[String]) -> Result<()> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for id in ids {
         tx.execute("DELETE FROM photos WHERE id = ?1", params![id])?;
@@ -381,18 +424,18 @@ pub fn purge_old_trash(conn: &Connection) -> Result<usize> {
 pub fn get_by_id(conn: &Connection, id: &str) -> Result<Option<Photo>> {
     let mut stmt = conn.prepare("SELECT * FROM photos WHERE id = ?1")?;
     match stmt.query_row(params![id], row_to_photo) {
-        Ok(p)                                     => Ok(Some(p)),
+        Ok(p) => Ok(Some(p)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e)                                    => Err(e.into()),
+        Err(e) => Err(e.into()),
     }
 }
 
 pub fn get_by_path(conn: &Connection, path: &str) -> Result<Option<Photo>> {
     let mut stmt = conn.prepare("SELECT * FROM photos WHERE file_path = ?1")?;
     match stmt.query_row(params![path], row_to_photo) {
-        Ok(p)                                     => Ok(Some(p)),
+        Ok(p) => Ok(Some(p)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e)                                    => Err(e.into()),
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -402,16 +445,17 @@ pub fn list_folder_index(
 ) -> Result<Vec<(String, String, i64)>> {
     let mut stmt = conn.prepare(
         "SELECT file_path, modified_at, file_size FROM photos \
-         WHERE folder_path = ?1 AND is_deleted = 0"
+         WHERE folder_path = ?1 AND is_deleted = 0",
     )?;
-    let rows = stmt.query_map(params![folder_path], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, i64>(2)?,
-        ))
-    })?
-    .collect::<std::result::Result<_, _>>()?;
+    let rows = stmt
+        .query_map(params![folder_path], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?
+        .collect::<std::result::Result<_, _>>()?;
     Ok(rows)
 }
 
@@ -435,17 +479,17 @@ pub fn query_paged(
     limit: u32,
 ) -> Result<PhotoPage> {
     let sort_col = match filter.sort_by.as_deref() {
-        Some("file_name")   => "file_name",
-        Some("file_size")   => "file_size",
+        Some("file_name") => "file_name",
+        Some("file_size") => "file_size",
         Some("imported_at") => "imported_at",
-        _                   => "created_at",
+        _ => "created_at",
     };
-    let order     = if filter.sort_asc { "ASC"  } else { "DESC" };
-    let cmp_dir   = if filter.sort_asc { ">"    } else { "<"    };
-    let cmp_eq_id = if filter.sort_asc { ">"    } else { "<"    };
+    let order = if filter.sort_asc { "ASC" } else { "DESC" };
+    let cmp_dir = if filter.sort_asc { ">" } else { "<" };
+    let cmp_eq_id = if filter.sort_asc { ">" } else { "<" };
 
-    let mut conds: Vec<String>                        = Vec::new();
-    let mut bind:  Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut conds: Vec<String> = Vec::new();
+    let mut bind: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
     if filter.is_deleted {
         conds.push("p.is_deleted = 1".into());
@@ -506,7 +550,8 @@ pub fn query_paged(
                 INNER JOIN albums a_priv ON ap_priv.album_id = a_priv.id \
                 WHERE ap_priv.photo_id = p.id \
                 AND COALESCE(a_priv.is_private, 0) = 1\
-            )".into()
+            )"
+            .into(),
         );
         String::new()
     };
@@ -555,7 +600,12 @@ pub fn query_paged(
             // 关键修复：只传前 count_bind_len 个参数，排除 cursor 追加的参数
             rusqlite::params_from_iter(bind[..count_bind_len].iter().map(|b| b.as_ref())),
             |row| row.get::<_, i64>(0),
-        )?.for_each(|r| { if let Ok(n) = r { v = n; } });
+        )?
+        .for_each(|r| {
+            if let Ok(n) = r {
+                v = n;
+            }
+        });
         v
     };
 
@@ -573,36 +623,46 @@ pub fn query_paged(
     bind.push(Box::new(limit as i64 + 1));
 
     let mut stmt = conn.prepare(&data_sql)?;
-    let rows = stmt.query_and_then(
-        rusqlite::params_from_iter(bind.iter().map(|b| b.as_ref())),
-        |row| -> Result<(PhotoThumb, String)> {
-            let thumb = row_to_photo_thumb(row).map_err(AppError::from)?;
-            // 读取额外游标字段（不进入 PhotoThumb 结构）
-            let sort_val = match sort_col {
-                "file_name"   => thumb.file_name.clone(),
-                "file_size"   => row.get::<_, i64>("file_size")
-                    .map_err(AppError::from)?.to_string(),
-                "imported_at" => row.get::<_, String>("imported_at")
-                    .map_err(AppError::from)?,
-                _             => thumb.created_at.clone(),
-            };
-            Ok((thumb, sort_val))
-        },
-    )?
-    .collect::<Result<Vec<_>>>()?;
+    let rows = stmt
+        .query_and_then(
+            rusqlite::params_from_iter(bind.iter().map(|b| b.as_ref())),
+            |row| -> Result<(PhotoThumb, String)> {
+                let thumb = row_to_photo_thumb(row).map_err(AppError::from)?;
+                // 读取额外游标字段（不进入 PhotoThumb 结构）
+                let sort_val = match sort_col {
+                    "file_name" => thumb.file_name.clone(),
+                    "file_size" => row
+                        .get::<_, i64>("file_size")
+                        .map_err(AppError::from)?
+                        .to_string(),
+                    "imported_at" => row
+                        .get::<_, String>("imported_at")
+                        .map_err(AppError::from)?,
+                    _ => thumb.created_at.clone(),
+                };
+                Ok((thumb, sort_val))
+            },
+        )?
+        .collect::<Result<Vec<_>>>()?;
 
     let mut items: Vec<PhotoThumb> = rows.iter().map(|(t, _)| t.clone()).collect();
-    let sort_vals: Vec<String>     = rows.into_iter().map(|(_, s)| s).collect();
+    let sort_vals: Vec<String> = rows.into_iter().map(|(_, s)| s).collect();
 
     let next_cursor = if items.len() > limit as usize {
         items.pop();
         let last_idx = items.len().saturating_sub(1);
-        items.get(last_idx).map(|p| format!("{}::{}", sort_vals[last_idx], p.id))
+        items
+            .get(last_idx)
+            .map(|p| format!("{}::{}", sort_vals[last_idx], p.id))
     } else {
         None
     };
 
-    Ok(PhotoPage { items, next_cursor, total })
+    Ok(PhotoPage {
+        items,
+        next_cursor,
+        total,
+    })
 }
 
 // ─────────────────────────────────────────────────────────
@@ -613,7 +673,7 @@ pub fn query_paged(
 #[serde(rename_all = "camelCase")]
 pub struct PhotoUpdateParams {
     pub is_favorite: Option<bool>,
-    pub rating:      Option<i32>,
+    pub rating: Option<i32>,
 }
 
 // 向后兼容别名

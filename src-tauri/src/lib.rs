@@ -57,11 +57,11 @@ pub fn run() {
             // ── 照片修改 ──────────────────────────────────
             commands::photo::photos_update,
             commands::photo::photos_favorite,
-            commands::photo::photos_favorite_batch,  // Phase-D：批量收藏（原子 undo_log）
+            commands::photo::photos_favorite_batch, // Phase-D：批量收藏（原子 undo_log）
             commands::photo::photos_delete,
             commands::photo::photos_restore,
             commands::photo::photos_purge,
-            commands::photo::photos_purge_data,  // v2 新增：仅从程序清除，不删磁盘文件
+            commands::photo::photos_purge_data, // v2 新增：仅从程序清除，不删磁盘文件
             // ── 搜索 ──────────────────────────────────────
             commands::photo::search_photos,
             commands::photo::search_suggestions,
@@ -71,7 +71,7 @@ pub fn run() {
             commands::thumbnail::thumbnail_request,
             // ── 相册 ──────────────────────────────────────
             commands::album::albums_list,
-            commands::album::albums_list_all,        // v2 新增：含私密相册
+            commands::album::albums_list_all, // v2 新增：含私密相册
             commands::album::albums_get,
             commands::album::albums_create,
             commands::album::albums_update,
@@ -80,9 +80,9 @@ pub fn run() {
             commands::album::album_photos_add,
             commands::album::album_photos_remove,
             commands::album::album_photos_reorder,
-            commands::album::album_create_private,   // v2 新增
-            commands::album::album_set_private,      // v2 新增
-            commands::album::album_verify_password,  // v2 新增
+            commands::album::album_create_private,  // v2 新增
+            commands::album::album_set_private,     // v2 新增
+            commands::album::album_verify_password, // v2 新增
             // ── 标签（Phase-B M-12）──────────────────────
             commands::tag::tags_list,
             commands::tag::tags_create,

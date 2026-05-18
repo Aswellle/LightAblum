@@ -23,7 +23,8 @@ pub trait AlbumRepository: Send + Sync {
     fn create_private(&self, name: &str, password_hash: &str) -> Result<Album>;
     fn update(&self, id: &str, params: &UpdateAlbumParams) -> Result<Album>;
     fn delete(&self, id: &str) -> Result<()>;
-    fn set_private(&self, id: &str, is_private: bool, password_hash: Option<&str>) -> Result<Album>;
+    fn set_private(&self, id: &str, is_private: bool, password_hash: Option<&str>)
+        -> Result<Album>;
     fn get_password_hash(&self, id: &str) -> Result<Option<String>>;
     fn list_photos(&self, album_id: &str, cursor: Option<&str>, limit: u32) -> Result<PhotoPage>;
     fn add_photos(&self, album_id: &str, photo_ids: &[String]) -> Result<()>;
@@ -91,7 +92,12 @@ impl AlbumRepository for SqliteAlbumRepository {
         crate::db::album::delete(&conn, id)
     }
 
-    fn set_private(&self, id: &str, is_private: bool, password_hash: Option<&str>) -> Result<Album> {
+    fn set_private(
+        &self,
+        id: &str,
+        is_private: bool,
+        password_hash: Option<&str>,
+    ) -> Result<Album> {
         let conn = self.conn()?;
         crate::db::album::set_private(&conn, id, is_private, password_hash)
     }

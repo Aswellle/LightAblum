@@ -9,16 +9,16 @@ impl SortField {
     pub fn column_name(&self) -> &'static str {
         match self {
             SortField::CreatedAt => "created_at",
-            SortField::FileName  => "file_name",
-            SortField::FileSize  => "file_size",
+            SortField::FileName => "file_name",
+            SortField::FileSize => "file_size",
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_field_name(s: &str) -> Self {
         match s {
             "file_name" => SortField::FileName,
             "file_size" => SortField::FileSize,
-            _           => SortField::CreatedAt,
+            _ => SortField::CreatedAt,
         }
     }
 }

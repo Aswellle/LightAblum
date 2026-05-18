@@ -79,31 +79,15 @@ impl serde::Serialize for AppError {
         // ── 从各 variant 派生 (code, message, detail) ──
         // detail: 内部技术信息（仅开发模式下展示给用户，正式 Toast 使用 code 映射）
         let (code, message, detail): (&str, String, Option<String>) = match self {
-            AppError::Database(e) => (
-                "DB_ERROR",
-                "Database error".into(),
-                Some(e.to_string()),
-            ),
-            AppError::Io(e) => (
-                "IO_ERROR",
-                "IO error".into(),
-                Some(e.to_string()),
-            ),
+            AppError::Database(e) => ("DB_ERROR", "Database error".into(), Some(e.to_string())),
+            AppError::Io(e) => ("IO_ERROR", "IO error".into(), Some(e.to_string())),
             AppError::Image(e) => (
                 "THUMBNAIL_ERROR",
                 "Image processing error".into(),
                 Some(e.to_string()),
             ),
-            AppError::Exif(msg) => (
-                "EXIF_ERROR",
-                msg.clone(),
-                None,
-            ),
-            AppError::Sidecar(msg) => (
-                "SIDECAR_ERROR",
-                msg.clone(),
-                None,
-            ),
+            AppError::Exif(msg) => ("EXIF_ERROR", msg.clone(), None),
+            AppError::Sidecar(msg) => ("SIDECAR_ERROR", msg.clone(), None),
             AppError::Serde(e) => (
                 "SERDE_ERROR",
                 "Serialization error".into(),

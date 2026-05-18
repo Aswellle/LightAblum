@@ -17,9 +17,7 @@ use tauri::State;
 // ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn settings_get(
-    state: State<'_, AppState>,
-) -> Result<AppSettings, AppError> {
+pub async fn settings_get(state: State<'_, AppState>) -> Result<AppSettings, AppError> {
     Ok(state.load_settings())
 }
 
@@ -30,7 +28,7 @@ pub async fn settings_get(
 #[tauri::command]
 pub async fn settings_update(
     settings: serde_json::Value,
-    state:    State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<AppSettings, AppError> {
     let mut current = state.load_settings();
 
@@ -73,10 +71,10 @@ pub async fn settings_update(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageInfo {
-    pub data_dir:          String,
-    pub thumb_dir:         String,
+    pub data_dir: String,
+    pub thumb_dir: String,
     pub thumb_cache_bytes: u64,
-    pub thumb_file_count:  u64,
+    pub thumb_file_count: u64,
 }
 
 // ─────────────────────────────────────────────────────────
@@ -86,23 +84,21 @@ pub struct StorageInfo {
 /// 获取存储信息：目录路径 + 缩略图缓存大小和文件数量
 /// 替代前端 @tauri-apps/plugin-fs 的目录遍历操作
 #[tauri::command]
-pub async fn storage_get_info(
-    state: State<'_, AppState>,
-) -> Result<StorageInfo, AppError> {
-    let data_dir          = state.data_dir.clone();
-    let thumb_dir         = state.thumb_dir.clone();
+pub async fn storage_get_info(state: State<'_, AppState>) -> Result<StorageInfo, AppError> {
+    let data_dir = state.data_dir.clone();
+    let thumb_dir = state.thumb_dir.clone();
     let thumb_dir_for_stat = thumb_dir.clone();
 
     let (thumb_cache_bytes, thumb_file_count) =
         tokio::task::spawn_blocking(move || -> (u64, u64) {
             let mut total_bytes: u64 = 0;
-            let mut file_count:  u64 = 0;
+            let mut file_count: u64 = 0;
             if let Ok(entries) = std::fs::read_dir(&thumb_dir_for_stat) {
                 for entry in entries.flatten() {
                     if let Ok(meta) = entry.metadata() {
                         if meta.is_file() {
                             total_bytes += meta.len();
-                            file_count  += 1;
+                            file_count += 1;
                         }
                     }
                 }
@@ -113,8 +109,8 @@ pub async fn storage_get_info(
         .unwrap_or((0, 0));
 
     Ok(StorageInfo {
-        data_dir:          data_dir.to_string_lossy().to_string(),
-        thumb_dir:         thumb_dir.to_string_lossy().to_string(),
+        data_dir: data_dir.to_string_lossy().to_string(),
+        thumb_dir: thumb_dir.to_string_lossy().to_string(),
         thumb_cache_bytes,
         thumb_file_count,
     })
@@ -127,31 +123,28 @@ pub async fn storage_get_info(
 /// 清空缩略图缓存，返回删除的文件数量
 /// 替代前端 @tauri-apps/plugin-fs 的 readDir + remove 操作
 #[tauri::command]
-pub async fn storage_clear_thumbnails(
-    state: State<'_, AppState>,
-) -> Result<u64, AppError> {
+pub async fn storage_clear_thumbnails(state: State<'_, AppState>) -> Result<u64, AppError> {
     let thumb_dir = state.thumb_dir.clone();
-    let cache     = std::sync::Arc::clone(&state.cache);
+    let cache = std::sync::Arc::clone(&state.cache);
 
-    let deleted_count =
-        tokio::task::spawn_blocking(move || -> u64 {
-            let mut count = 0u64;
-            if let Ok(entries) = std::fs::read_dir(&thumb_dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() && std::fs::remove_file(&path).is_ok() {
-                        count += 1;
-                    }
+    let deleted_count = tokio::task::spawn_blocking(move || -> u64 {
+        let mut count = 0u64;
+        if let Ok(entries) = std::fs::read_dir(&thumb_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && std::fs::remove_file(&path).is_ok() {
+                    count += 1;
                 }
             }
-            // 重建内存缓存索引（清零 used_bytes）
-            if let Ok(mut c) = cache.lock() {
-                c.rebuild_usage();
-            }
-            count
-        })
-        .await
-        .unwrap_or(0);
+        }
+        // 重建内存缓存索引（清零 used_bytes）
+        if let Ok(mut c) = cache.lock() {
+            c.rebuild_usage();
+        }
+        count
+    })
+    .await
+    .unwrap_or(0);
 
     Ok(deleted_count)
 }
@@ -164,12 +157,14 @@ pub async fn storage_clear_thumbnails(
 /// 使用已安装的 tauri-plugin-shell，替代前端直接调用 plugin-shell
 #[tauri::command]
 pub async fn storage_open_data_dir(
-    app:   tauri::AppHandle,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
     let data_dir_str = state.data_dir.to_string_lossy().to_string();
 
+    #[allow(deprecated)]
     use tauri_plugin_shell::ShellExt;
+    #[allow(deprecated)]
     app.shell()
         .open(&data_dir_str, None)
         .map_err(|e| AppError::Other(format!("Failed to open directory: {e}")))?;

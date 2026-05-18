@@ -15,17 +15,17 @@
 //   3. SearchSuggestions 结构体新增 tags: Vec<TagSuggestion> 字段，
 //      与 IPC 层 types/ipc.ts 保持对齐。
 
+use crate::db::photo::{row_to_photo_thumb, PhotoPage, PhotoThumb, PHOTO_THUMB_SELECT};
 use crate::error::Result;
-use crate::db::photo::{PhotoThumb, PhotoPage, PHOTO_THUMB_SELECT, row_to_photo_thumb};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 // Phase-C：标签建议精简结构（避免循环依赖 db::tag）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TagSuggestion {
-    pub id:    String,
-    pub name:  String,
+    pub id: String,
+    pub name: String,
     pub color: String,
 }
 
@@ -36,18 +36,18 @@ pub struct TagSuggestion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchQuery {
-    pub text:        Option<String>,   // 文件名模糊搜索
-    pub date_from:   Option<String>,   // ISO 8601
-    pub date_to:     Option<String>,
+    pub text: Option<String>,      // 文件名模糊搜索
+    pub date_from: Option<String>, // ISO 8601
+    pub date_to: Option<String>,
     pub camera_make: Option<String>,
-    pub camera_model:Option<String>,
-    pub has_gps:     Option<bool>,
-    pub format:      Option<String>,
-    pub rating:      Option<i32>,      // 最低评分
-    pub limit:       Option<u32>,
-    pub cursor:      Option<String>,
+    pub camera_model: Option<String>,
+    pub has_gps: Option<bool>,
+    pub format: Option<String>,
+    pub rating: Option<i32>, // 最低评分
+    pub limit: Option<u32>,
+    pub cursor: Option<String>,
     /// Phase-B（M-12）：按标签 ID 过滤，AND 语义（照片必须包含所有指定标签）
-    pub tag_ids:     Option<Vec<String>>,
+    pub tag_ids: Option<Vec<String>>,
 }
 
 // ─────────────────────────────────────────────────────────
@@ -57,41 +57,41 @@ pub struct SearchQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryStats {
-    pub total_photos:         i64,
-    pub total_favorites:      i64,
-    pub total_albums:         i64,
-    pub total_size_bytes:     i64,
-    pub format_distribution:  Vec<FormatCount>,
-    pub camera_distribution:  Vec<CameraCount>,
-    pub date_range:           DateRange,
-    pub monthly_counts:       Vec<MonthCount>,
+    pub total_photos: i64,
+    pub total_favorites: i64,
+    pub total_albums: i64,
+    pub total_size_bytes: i64,
+    pub format_distribution: Vec<FormatCount>,
+    pub camera_distribution: Vec<CameraCount>,
+    pub date_range: DateRange,
+    pub monthly_counts: Vec<MonthCount>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FormatCount {
     pub format: String,
-    pub count:  i64,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CameraCount {
     pub camera: String,
-    pub count:  i64,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DateRange {
     pub earliest: Option<String>,
-    pub latest:   Option<String>,
+    pub latest: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonthCount {
-    pub month: String,  // "YYYY-MM"
+    pub month: String, // "YYYY-MM"
     pub count: i64,
 }
 
@@ -178,7 +178,12 @@ pub fn search(conn: &Connection, q: &SearchQuery) -> Result<PhotoPage> {
         stmt.query_and_then(
             rusqlite::params_from_iter(bind.iter().map(|b| b.as_ref())),
             |row| row.get::<_, i64>(0),
-        )?.for_each(|r| { if let Ok(v) = r { val = v; } });
+        )?
+        .for_each(|r| {
+            if let Ok(v) = r {
+                val = v;
+            }
+        });
         val
     };
 
@@ -220,7 +225,11 @@ pub fn search(conn: &Connection, q: &SearchQuery) -> Result<PhotoPage> {
         None
     };
 
-    Ok(PhotoPage { items, next_cursor, total })
+    Ok(PhotoPage {
+        items,
+        next_cursor,
+        total,
+    })
 }
 
 // ─────────────────────────────────────────────────────────
@@ -231,10 +240,10 @@ pub fn search(conn: &Connection, q: &SearchQuery) -> Result<PhotoPage> {
 #[serde(rename_all = "camelCase")]
 pub struct SearchSuggestions {
     pub file_names: Vec<String>,
-    pub cameras:    Vec<String>,
-    pub folders:    Vec<String>,
+    pub cameras: Vec<String>,
+    pub folders: Vec<String>,
     /// Phase-C：标签名称建议（匹配 tags.name LIKE ?）
-    pub tags:       Vec<TagSuggestion>,
+    pub tags: Vec<TagSuggestion>,
 }
 
 pub fn suggestions(conn: &Connection, q: &str, limit: u32) -> Result<SearchSuggestions> {
@@ -244,7 +253,7 @@ pub fn suggestions(conn: &Connection, q: &str, limit: u32) -> Result<SearchSugge
     let mut stmt = conn.prepare(
         "SELECT DISTINCT file_name FROM photos \
          WHERE file_name LIKE ?1 ESCAPE '\\' AND is_deleted = 0 \
-         ORDER BY imported_at DESC LIMIT ?2"
+         ORDER BY imported_at DESC LIMIT ?2",
     )?;
     let file_names: Vec<String> = stmt
         .query_map(params![pattern, limit], |row| row.get(0))?
@@ -254,19 +263,21 @@ pub fn suggestions(conn: &Connection, q: &str, limit: u32) -> Result<SearchSugge
     let mut stmt = conn.prepare(
         "SELECT DISTINCT camera_model FROM photos \
          WHERE camera_model LIKE ?1 ESCAPE '\\' AND is_deleted = 0 \
-         ORDER BY camera_model LIMIT ?2"
+         ORDER BY camera_model LIMIT ?2",
     )?;
     let cameras: Vec<String> = stmt
-        .query_map(params![pattern, limit], |row| row.get(0))?
+        .query_map(params![pattern, limit], |row| {
+            row.get::<_, Option<String>>(0)
+        })?
         .filter_map(|r| r.ok())
-        .filter_map(|v: Option<String>| v)
+        .flatten()
         .collect();
 
     // 文件夹建议
     let mut stmt = conn.prepare(
         "SELECT DISTINCT folder_path FROM photos \
          WHERE folder_path LIKE ?1 ESCAPE '\\' AND is_deleted = 0 \
-         ORDER BY folder_path LIMIT ?2"
+         ORDER BY folder_path LIMIT ?2",
     )?;
     let folders: Vec<String> = stmt
         .query_map(params![pattern, limit], |row| row.get(0))?
@@ -276,19 +287,24 @@ pub fn suggestions(conn: &Connection, q: &str, limit: u32) -> Result<SearchSugge
     let mut stmt = conn.prepare(
         "SELECT id, name, color FROM tags \
          WHERE name LIKE ?1 ESCAPE '\\' \
-         ORDER BY usage_count DESC, name ASC LIMIT ?2"
+         ORDER BY usage_count DESC, name ASC LIMIT ?2",
     )?;
     let tags: Vec<TagSuggestion> = stmt
         .query_map(params![pattern, limit], |row| {
             Ok(TagSuggestion {
-                id:    row.get(0)?,
-                name:  row.get(1)?,
+                id: row.get(0)?,
+                name: row.get(1)?,
                 color: row.get(2)?,
             })
         })?
         .collect::<std::result::Result<_, _>>()?;
 
-    Ok(SearchSuggestions { file_names, cameras, folders, tags })
+    Ok(SearchSuggestions {
+        file_names,
+        cameras,
+        folders,
+        tags,
+    })
 }
 
 // ─────────────────────────────────────────────────────────
@@ -299,34 +315,36 @@ pub fn library_stats(conn: &Connection) -> Result<LibraryStats> {
     // 基础计数
     let total_photos: i64 = conn.query_row(
         "SELECT COUNT(*) FROM photos WHERE is_deleted = 0",
-        [], |row| row.get(0),
+        [],
+        |row| row.get(0),
     )?;
 
     let total_favorites: i64 = conn.query_row(
         "SELECT COUNT(*) FROM photos WHERE is_deleted = 0 AND is_favorite = 1",
-        [], |row| row.get(0),
+        [],
+        |row| row.get(0),
     )?;
 
-    let total_albums: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM albums",
-        [], |row| row.get(0),
-    )?;
+    let total_albums: i64 = conn.query_row("SELECT COUNT(*) FROM albums", [], |row| row.get(0))?;
 
     let total_size_bytes: i64 = conn.query_row(
         "SELECT COALESCE(SUM(file_size), 0) FROM photos WHERE is_deleted = 0",
-        [], |row| row.get(0),
+        [],
+        |row| row.get(0),
     )?;
 
     // 格式分布
     let mut stmt = conn.prepare(
         "SELECT format, COUNT(*) as cnt FROM photos \
-         WHERE is_deleted = 0 GROUP BY format ORDER BY cnt DESC"
+         WHERE is_deleted = 0 GROUP BY format ORDER BY cnt DESC",
     )?;
     let format_distribution: Vec<FormatCount> = stmt
-        .query_map([], |row| Ok(FormatCount {
-            format: row.get(0)?,
-            count:  row.get(1)?,
-        }))?
+        .query_map([], |row| {
+            Ok(FormatCount {
+                format: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })?
         .collect::<std::result::Result<_, _>>()?;
 
     // 相机分布（Top 10）
@@ -337,20 +355,24 @@ pub fn library_stats(conn: &Connection) -> Result<LibraryStats> {
          GROUP BY cam ORDER BY cnt DESC LIMIT 10"
     )?;
     let camera_distribution: Vec<CameraCount> = stmt
-        .query_map([], |row| Ok(CameraCount {
-            camera: row.get(0)?,
-            count:  row.get(1)?,
-        }))?
+        .query_map([], |row| {
+            Ok(CameraCount {
+                camera: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })?
         .collect::<std::result::Result<_, _>>()?;
 
     // 日期范围
     let date_range: DateRange = conn.query_row(
         "SELECT MIN(created_at), MAX(created_at) FROM photos WHERE is_deleted = 0",
         [],
-        |row| Ok(DateRange {
-            earliest: row.get(0)?,
-            latest:   row.get(1)?,
-        }),
+        |row| {
+            Ok(DateRange {
+                earliest: row.get(0)?,
+                latest: row.get(1)?,
+            })
+        },
     )?;
 
     // 近 12 个月计数
@@ -358,13 +380,15 @@ pub fn library_stats(conn: &Connection) -> Result<LibraryStats> {
         "SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt \
          FROM photos WHERE is_deleted = 0 \
            AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-12 months') \
-         GROUP BY month ORDER BY month DESC"
+         GROUP BY month ORDER BY month DESC",
     )?;
     let monthly_counts: Vec<MonthCount> = stmt
-        .query_map([], |row| Ok(MonthCount {
-            month: row.get(0)?,
-            count: row.get(1)?,
-        }))?
+        .query_map([], |row| {
+            Ok(MonthCount {
+                month: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })?
         .collect::<std::result::Result<_, _>>()?;
 
     Ok(LibraryStats {

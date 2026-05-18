@@ -60,14 +60,11 @@ pub fn run_migrations(conn: &Connection, db_path: &Path) -> Result<()> {
     if version > 0 && version < 5 {
         let bak_path = db_path.with_extension(format!("db.bak.{version}"));
         match std::fs::copy(db_path, &bak_path) {
-            Ok(_)  => tracing::info!(
+            Ok(_) => tracing::info!(
                 "DB backup created: {} (current version: {version})",
                 bak_path.display()
             ),
-            Err(e) => tracing::warn!(
-                "DB backup failed (non-fatal): {} — {e}",
-                bak_path.display()
-            ),
+            Err(e) => tracing::warn!("DB backup failed (non-fatal): {} — {e}", bak_path.display()),
         }
     }
 
@@ -133,21 +130,21 @@ fn apply_v2_idempotent(conn: &Connection) -> Result<()> {
     /// 每个要添加的列的描述
     struct Col<'a> {
         name: &'a str,
-        ddl:  &'a str,     // 完整 ALTER TABLE 语句
+        ddl: &'a str, // 完整 ALTER TABLE 语句
     }
 
     let cols = [
         Col {
             name: "orientation",
-            ddl:  "ALTER TABLE photos ADD COLUMN orientation INTEGER NOT NULL DEFAULT 1;",
+            ddl: "ALTER TABLE photos ADD COLUMN orientation INTEGER NOT NULL DEFAULT 1;",
         },
         Col {
             name: "lens_model",
-            ddl:  "ALTER TABLE photos ADD COLUMN lens_model TEXT;",
+            ddl: "ALTER TABLE photos ADD COLUMN lens_model TEXT;",
         },
         Col {
             name: "exposure_comp",
-            ddl:  "ALTER TABLE photos ADD COLUMN exposure_comp REAL;",
+            ddl: "ALTER TABLE photos ADD COLUMN exposure_comp REAL;",
         },
     ];
 
@@ -171,17 +168,17 @@ fn apply_v2_idempotent(conn: &Connection) -> Result<()> {
 fn apply_v3_idempotent(conn: &Connection) -> Result<()> {
     struct Col<'a> {
         name: &'a str,
-        ddl:  &'a str,
+        ddl: &'a str,
     }
 
     let cols = [
         Col {
             name: "is_private",
-            ddl:  "ALTER TABLE albums ADD COLUMN is_private INTEGER NOT NULL DEFAULT 0;",
+            ddl: "ALTER TABLE albums ADD COLUMN is_private INTEGER NOT NULL DEFAULT 0;",
         },
         Col {
             name: "password_hash",
-            ddl:  "ALTER TABLE albums ADD COLUMN password_hash TEXT;",
+            ddl: "ALTER TABLE albums ADD COLUMN password_hash TEXT;",
         },
     ];
 
@@ -319,7 +316,6 @@ BEGIN
 END;
 "#;
 
-
 // ─────────────────────────────────────────────────────────
 //  V4 Schema：标签系统（M-12）
 // ─────────────────────────────────────────────────────────
@@ -387,9 +383,7 @@ fn apply_v5_search_text(conn: &Connection) -> Result<()> {
     // 1. 按需添加列（幂等）
     if !column_exists(conn, "photos", "search_text")? {
         tracing::debug!("Adding column photos.search_text");
-        conn.execute_batch(
-            "ALTER TABLE photos ADD COLUMN search_text TEXT;"
-        )?;
+        conn.execute_batch("ALTER TABLE photos ADD COLUMN search_text TEXT;")?;
 
         // 2. 存量照片补填（仅在首次创建列时执行，之后触发器负责维护）
         conn.execute_batch(

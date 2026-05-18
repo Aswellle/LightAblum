@@ -21,13 +21,15 @@ use xxhash_rust::xxh64::Xxh64;
 /// 使用 64 KB 分块读取，避免将大型 RAW 文件（可能超过 50MB）全部载入内存。
 /// 返回 16 位小写十六进制字符串（如 "a3f7c8d91e2b4a5f"）。
 pub fn hash_file(path: &Path) -> Result<String> {
-    let mut file   = std::fs::File::open(path)?;
+    let mut file = std::fs::File::open(path)?;
     let mut hasher = Xxh64::new(0);
-    let mut buf    = [0u8; 65536]; // 64 KB
+    let mut buf = [0u8; 65536]; // 64 KB
 
     loop {
         let n = file.read(&mut buf)?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buf[..n]);
     }
 

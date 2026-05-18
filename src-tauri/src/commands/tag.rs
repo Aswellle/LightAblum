@@ -21,10 +21,8 @@ use tauri::State;
 
 /// 列出所有标签（按 sort_order ASC, usage_count DESC）
 #[tauri::command]
-pub async fn tags_list(
-    state: State<'_, AppState>,
-) -> Result<Vec<Tag>, AppError> {
-    Ok(state.tags.list()?)
+pub async fn tags_list(state: State<'_, AppState>) -> Result<Vec<Tag>, AppError> {
+    state.tags.list()
 }
 
 /// 创建标签
@@ -33,7 +31,7 @@ pub async fn tags_list(
 /// 若同名标签已存在，返回 TAG_DUPLICATE 错误
 #[tauri::command]
 pub async fn tags_create(
-    name:  String,
+    name: String,
     color: String,
     state: State<'_, AppState>,
 ) -> Result<Tag, AppError> {
@@ -43,16 +41,13 @@ pub async fn tags_create(
     if name.len() > 50 {
         return Err(AppError::InvalidArgument("标签名最长 50 个字符".into()));
     }
-    Ok(state.tags.create(name.trim(), &color)?)
+    state.tags.create(name.trim(), &color)
 }
 
 /// 删除标签（级联删除所有 photo_tags 关联）
 #[tauri::command]
-pub async fn tags_delete(
-    id:    String,
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    Ok(state.tags.delete(&id)?)
+pub async fn tags_delete(id: String, state: State<'_, AppState>) -> Result<(), AppError> {
+    state.tags.delete(&id)
 }
 
 // ─────────────────────────────────────────────────────────
@@ -63,32 +58,36 @@ pub async fn tags_delete(
 #[tauri::command]
 pub async fn photo_tags_get(
     photo_id: String,
-    state:    State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<Tag>, AppError> {
-    Ok(state.tags.get_for_photo(&photo_id)?)
+    state.tags.get_for_photo(&photo_id)
 }
 
 /// 为照片添加标签（幂等，已存在的关联自动跳过）
 #[tauri::command]
 pub async fn photo_tags_add(
     photo_id: String,
-    tag_ids:  Vec<String>,
-    state:    State<'_, AppState>,
+    tag_ids: Vec<String>,
+    state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    if tag_ids.is_empty() { return Ok(()); }
+    if tag_ids.is_empty() {
+        return Ok(());
+    }
     if tag_ids.len() > 50 {
         return Err(AppError::InvalidArgument("单次最多添加 50 个标签".into()));
     }
-    Ok(state.tags.add_to_photo(&photo_id, &tag_ids)?)
+    state.tags.add_to_photo(&photo_id, &tag_ids)
 }
 
 /// 从照片移除标签
 #[tauri::command]
 pub async fn photo_tags_remove(
     photo_id: String,
-    tag_ids:  Vec<String>,
-    state:    State<'_, AppState>,
+    tag_ids: Vec<String>,
+    state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    if tag_ids.is_empty() { return Ok(()); }
-    Ok(state.tags.remove_from_photo(&photo_id, &tag_ids)?)
+    if tag_ids.is_empty() {
+        return Ok(());
+    }
+    state.tags.remove_from_photo(&photo_id, &tag_ids)
 }

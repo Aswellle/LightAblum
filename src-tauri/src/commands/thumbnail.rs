@@ -21,8 +21,8 @@
 
 use crate::error::AppError;
 use crate::state::AppState;
+use crate::thumbnail::pipeline::{PipelineTask, Priority};
 use crate::thumbnail::{self, ThumbSize};
-use crate::thumbnail::pipeline::{Priority, PipelineTask};
 use tauri::State;
 
 // ─────────────────────────────────────────────────────────
@@ -43,15 +43,15 @@ use tauri::State;
 #[tauri::command]
 pub async fn thumbnail_get_path(
     photo_id: String,
-    size:     ThumbSize,
-    state:    State<'_, AppState>,
+    size: ThumbSize,
+    state: State<'_, AppState>,
 ) -> Result<Option<String>, AppError> {
     // 单次 conn() 完成所有 DB 操作，避免多次取连接压垮 pool
     let (stored, file_hash, file_path) = {
-        let conn  = state.conn()?;
+        let conn = state.conn()?;
         let photo = crate::db::photo::get_by_id(&conn, &photo_id)?;
         match photo {
-            None    => return Ok(None),
+            None => return Ok(None),
             Some(p) => {
                 let stored = match size {
                     ThumbSize::S => p.thumbnail_s,
@@ -96,10 +96,10 @@ pub async fn thumbnail_get_path(
             };
             if let Some(pipeline) = pipeline_opt {
                 pipeline.enqueue(PipelineTask {
-                    photo_id:   photo_id.clone(),
-                    file_path:  file_path.clone(),
-                    file_hash:  file_hash.clone(),
-                    priority:   Priority::High,
+                    photo_id: photo_id.clone(),
+                    file_path: file_path.clone(),
+                    file_hash: file_hash.clone(),
+                    priority: Priority::High,
                     need_large: matches!(size, ThumbSize::L),
                 });
             }
@@ -120,9 +120,9 @@ pub async fn thumbnail_get_path(
 #[tauri::command]
 pub async fn thumbnail_request(
     photo_ids: Vec<String>,
-    size:      ThumbSize,
-    priority:  Option<String>,
-    state:     State<'_, AppState>,
+    size: ThumbSize,
+    priority: Option<String>,
+    state: State<'_, AppState>,
 ) -> Result<(), AppError> {
     if photo_ids.len() > 500 {
         return Err(AppError::InvalidArgument(
@@ -132,7 +132,7 @@ pub async fn thumbnail_request(
 
     let prio = match priority.as_deref() {
         Some("high") => Priority::High,
-        _            => Priority::Normal,
+        _ => Priority::Normal,
     };
 
     // Bugfix: pipeline 是 Mutex<Option<Arc<...>>>，先 lock 再 clone，锁外使用
@@ -142,31 +142,36 @@ pub async fn thumbnail_request(
     };
 
     if let Some(pipeline) = pipeline_opt {
-        let conn = state.conn()?;   // Bugfix: conn() 替代 db.lock()
+        let conn = state.conn()?; // Bugfix: conn() 替代 db.lock()
         for id in &photo_ids {
             if let Ok(Some(photo)) = crate::db::photo::get_by_id(&conn, id) {
                 // 已有目标尺寸的缩略图则跳过
                 let already_done = match size {
-                    ThumbSize::S => photo.thumbnail_s
+                    ThumbSize::S => photo
+                        .thumbnail_s
                         .as_ref()
                         .map(|p| std::path::Path::new(p).exists())
                         .unwrap_or(false),
-                    ThumbSize::M => photo.thumbnail_m
+                    ThumbSize::M => photo
+                        .thumbnail_m
                         .as_ref()
                         .map(|p| std::path::Path::new(p).exists())
                         .unwrap_or(false),
-                    ThumbSize::L => photo.thumbnail_l
+                    ThumbSize::L => photo
+                        .thumbnail_l
                         .as_ref()
                         .map(|p| std::path::Path::new(p).exists())
                         .unwrap_or(false),
                 };
-                if already_done { continue; }
+                if already_done {
+                    continue;
+                }
 
                 pipeline.enqueue(PipelineTask {
-                    photo_id:   id.clone(),
-                    file_path:  photo.file_path,
-                    file_hash:  photo.file_hash,
-                    priority:   prio,
+                    photo_id: id.clone(),
+                    file_path: photo.file_path,
+                    file_hash: photo.file_hash,
+                    priority: prio,
                     need_large: matches!(size, ThumbSize::L),
                 });
             }

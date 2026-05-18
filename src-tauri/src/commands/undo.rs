@@ -5,7 +5,9 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn undo_last(state: State<'_, AppState>) -> Result<serde_json::Value, AppError> {
-    let entry = state.undo.pop_last()?
+    let entry = state
+        .undo
+        .pop_last()?
         .ok_or_else(|| AppError::Other("UNDO_EMPTY".into()))?;
 
     let reversed = apply_undo(&state, &entry.action, &entry.payload).await?;
@@ -38,22 +40,29 @@ async fn apply_undo(state: &AppState, action: &str, payload: &str) -> Result<boo
             Ok(true)
         }
         "favorite_batch" => {
-            let old_values = v["old_values"].as_object()
+            let old_values = v["old_values"]
+                .as_object()
                 .ok_or_else(|| AppError::Other("invalid undo payload".into()))?;
             // 按目标值分组，用 set_favorite_batch 批量更新（最多 2 次事务，而非 N 次）
-            let mut ids_true:  Vec<String> = Vec::new();
+            let mut ids_true: Vec<String> = Vec::new();
             let mut ids_false: Vec<String> = Vec::new();
             for (id, val) in old_values {
                 match val.as_bool() {
-                    Some(true)  => ids_true.push(id.clone()),
+                    Some(true) => ids_true.push(id.clone()),
                     Some(false) => ids_false.push(id.clone()),
-                    None => return Err(AppError::Other(
-                        format!("invalid bool in favorite_batch undo for id={id}")
-                    )),
+                    None => {
+                        return Err(AppError::Other(format!(
+                            "invalid bool in favorite_batch undo for id={id}"
+                        )))
+                    }
                 }
             }
-            if !ids_true.is_empty()  { state.photos.set_favorite_batch(&ids_true,  true)?;  }
-            if !ids_false.is_empty() { state.photos.set_favorite_batch(&ids_false, false)?; }
+            if !ids_true.is_empty() {
+                state.photos.set_favorite_batch(&ids_true, true)?;
+            }
+            if !ids_false.is_empty() {
+                state.photos.set_favorite_batch(&ids_false, false)?;
+            }
             Ok(true)
         }
         "album_photos_add" => {

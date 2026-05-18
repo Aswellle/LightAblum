@@ -32,33 +32,34 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn photos_list(
-    filter:  PhotoFilter,
-    cursor:  Option<String>,
-    limit:   Option<u32>,
-    state:   State<'_, AppState>,
+    filter: PhotoFilter,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    state: State<'_, AppState>,
 ) -> Result<PhotoPage, AppError> {
     let limit = limit.unwrap_or(100).min(500);
-    state.photos.list(&filter, cursor.as_deref(), limit).map_err(Into::into)
+    state.photos.list(&filter, cursor.as_deref(), limit)
 }
 
 #[tauri::command]
-pub async fn photos_get(
-    id:    String,
-    state: State<'_, AppState>,
-) -> Result<Photo, AppError> {
-    state.photos.get(&id)?
+pub async fn photos_get(id: String, state: State<'_, AppState>) -> Result<Photo, AppError> {
+    state
+        .photos
+        .get(&id)?
         .ok_or_else(|| AppError::NotFound(format!("Photo {id} not found")))
 }
 
 #[tauri::command]
 pub async fn photos_get_batch(
-    ids:   Vec<String>,
+    ids: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<Photo>, AppError> {
     if ids.len() > 100 {
-        return Err(AppError::InvalidArgument("Batch size exceeds limit of 100".into()));
+        return Err(AppError::InvalidArgument(
+            "Batch size exceeds limit of 100".into(),
+        ));
     }
-    state.photos.get_batch(&ids).map_err(Into::into)
+    state.photos.get_batch(&ids)
 }
 
 // ─────────────────────────────────────────────────────────
@@ -67,9 +68,9 @@ pub async fn photos_get_batch(
 
 #[tauri::command]
 pub async fn photos_update(
-    id:     String,
+    id: String,
     params: PhotoUpdateParams,
-    state:  State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<Photo, AppError> {
     let conn = state.conn()?;
     if let Some(fav) = params.is_favorite {
@@ -84,7 +85,9 @@ pub async fn photos_update(
             rusqlite::params![rating, id],
         )?;
     }
-    state.photos.get(&id)?
+    state
+        .photos
+        .get(&id)?
         .ok_or_else(|| AppError::NotFound(format!("Photo {id} not found")))
 }
 
@@ -95,7 +98,7 @@ pub async fn photos_update(
 /// payload 格式：{ "id": "...", "old_value": <bool> }
 #[tauri::command]
 pub async fn photos_favorite(
-    id:    String,
+    id: String,
     value: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
@@ -113,7 +116,7 @@ pub async fn photos_favorite(
         }
     }
 
-    state.photos.set_favorite(&id, value).map_err(Into::into)
+    state.photos.set_favorite(&id, value)
 }
 
 /// 批量切换收藏状态（Phase-D M-11）
@@ -131,13 +134,17 @@ pub async fn photos_favorite(
 ///   { "ids": ["id1","id2",...], "old_values": {"id1": false, "id2": true, ...}, "new_value": true }
 #[tauri::command]
 pub async fn photos_favorite_batch(
-    ids:   Vec<String>,
+    ids: Vec<String>,
     value: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     if ids.len() > 1000 {
-        return Err(AppError::InvalidArgument("Exceeded limit of 1000 items".into()));
+        return Err(AppError::InvalidArgument(
+            "Exceeded limit of 1000 items".into(),
+        ));
     }
 
     // 1. 查询所有照片当前收藏状态，构建旧值映射
@@ -158,7 +165,7 @@ pub async fn photos_favorite_batch(
     let _ = state.undo.record("favorite_batch", &payload);
 
     // 3. 批量更新（单事务）
-    state.photos.set_favorite_batch(&ids, value).map_err(Into::into)
+    state.photos.set_favorite_batch(&ids, value)
 }
 
 /// 软删除：将照片移入回收站
@@ -167,41 +174,42 @@ pub async fn photos_favorite_batch(
 /// photos_delete 是 undo_log 最初支持的 action，此处无需修改，
 /// 仅补充注释说明其已正确接入撤销系统。
 #[tauri::command]
-pub async fn photos_delete(
-    ids:   Vec<String>,
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    if ids.is_empty() { return Ok(()); }
+pub async fn photos_delete(ids: Vec<String>, state: State<'_, AppState>) -> Result<(), AppError> {
+    if ids.is_empty() {
+        return Ok(());
+    }
     if ids.len() > 1000 {
-        return Err(AppError::InvalidArgument("Exceeded limit of 1000 items".into()));
+        return Err(AppError::InvalidArgument(
+            "Exceeded limit of 1000 items".into(),
+        ));
     }
 
     // 写 undo_log：记录被删除的 id 列表，供 undo_last 恢复用
     let payload = serde_json::json!({ "ids": ids }).to_string();
     let _ = state.undo.record("photo_delete", &payload);
 
-    state.photos.soft_delete(&ids).map_err(Into::into)
+    state.photos.soft_delete(&ids)
 }
 
 /// 从回收站恢复
 #[tauri::command]
-pub async fn photos_restore(
-    ids:   Vec<String>,
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    if ids.is_empty() { return Ok(()); }
-    state.photos.restore(&ids).map_err(Into::into)
+pub async fn photos_restore(ids: Vec<String>, state: State<'_, AppState>) -> Result<(), AppError> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    state.photos.restore(&ids)
 }
 
 /// 永久删除（同时删除磁盘原文件）
 #[tauri::command]
-pub async fn photos_purge(
-    ids:   Vec<String>,
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    if ids.is_empty() { return Ok(()); }
+pub async fn photos_purge(ids: Vec<String>, state: State<'_, AppState>) -> Result<(), AppError> {
+    if ids.is_empty() {
+        return Ok(());
+    }
     if ids.len() > 1000 {
-        return Err(AppError::InvalidArgument("Exceeded limit of 1000 items".into()));
+        return Err(AppError::InvalidArgument(
+            "Exceeded limit of 1000 items".into(),
+        ));
     }
     for id in &ids {
         if let Ok(Some(p)) = state.photos.get(id) {
@@ -213,7 +221,7 @@ pub async fn photos_purge(
             }
         }
     }
-    state.photos.purge(&ids).map_err(Into::into)
+    state.photos.purge(&ids)
 }
 
 /// v2 新增：仅从程序数据库中清除（不删磁盘原文件）
@@ -223,15 +231,19 @@ pub async fn photos_purge(
 /// 用户可以重新导入该文件夹以恢复记录。
 #[tauri::command]
 pub async fn photos_purge_data(
-    ids:   Vec<String>,
+    ids: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    if ids.is_empty() { return Ok(()); }
+    if ids.is_empty() {
+        return Ok(());
+    }
     if ids.len() > 1000 {
-        return Err(AppError::InvalidArgument("Exceeded limit of 1000 items".into()));
+        return Err(AppError::InvalidArgument(
+            "Exceeded limit of 1000 items".into(),
+        ));
     }
     // purge() 只删除 DB 记录，不涉及文件系统
-    state.photos.purge(&ids).map_err(Into::into)
+    state.photos.purge(&ids)
 }
 
 // ─────────────────────────────────────────────────────────
@@ -243,21 +255,19 @@ pub async fn search_photos(
     query: SearchQuery,
     state: State<'_, AppState>,
 ) -> Result<PhotoPage, AppError> {
-    state.photos.search(&query).map_err(Into::into)
+    state.photos.search(&query)
 }
 
 #[tauri::command]
 pub async fn search_suggestions(
-    q:     String,
+    q: String,
     limit: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<SearchSuggestions, AppError> {
-    state.photos.search_suggestions(&q, limit.unwrap_or(10)).map_err(Into::into)
+    state.photos.search_suggestions(&q, limit.unwrap_or(10))
 }
 
 #[tauri::command]
-pub async fn search_stats(
-    state: State<'_, AppState>,
-) -> Result<LibraryStats, AppError> {
-    state.photos.search_stats().map_err(Into::into)
+pub async fn search_stats(state: State<'_, AppState>) -> Result<LibraryStats, AppError> {
+    state.photos.search_stats()
 }

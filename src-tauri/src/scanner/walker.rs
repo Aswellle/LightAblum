@@ -22,11 +22,11 @@ pub const BATCH_SIZE: usize = 200;
 #[derive(Debug, Clone)]
 pub struct FileEntry {
     /// 绝对路径
-    pub path:        PathBuf,
+    pub path: PathBuf,
     /// 文件名（含扩展名）
-    pub file_name:   String,
+    pub file_name: String,
     /// 文件大小（字节）
-    pub file_size:   u64,
+    pub file_size: u64,
     /// 文件最后修改时间（UTC）
     pub modified_at: chrono::DateTime<chrono::Utc>,
 }
@@ -39,7 +39,9 @@ pub struct FileWalker {
 
 impl Default for FileWalker {
     fn default() -> Self {
-        Self { batch_size: BATCH_SIZE }
+        Self {
+            batch_size: BATCH_SIZE,
+        }
     }
 }
 
@@ -67,16 +69,16 @@ impl FileWalker {
             .iter()
             .flat_map(|root| {
                 WalkBuilder::new(root)
-                    .hidden(true)            // 跳过隐藏文件/目录（.DS_Store, thumbs.db 等）
-                    .git_ignore(false)       // 照片库不尊重 .gitignore
-                    .git_global(false)       // 不使用全局 gitignore
+                    .hidden(true) // 跳过隐藏文件/目录（.DS_Store, thumbs.db 等）
+                    .git_ignore(false) // 照片库不尊重 .gitignore
+                    .git_global(false) // 不使用全局 gitignore
                     .git_exclude(false)
-                    .follow_links(false)     // 不跟随符号链接（防循环）
+                    .follow_links(false) // 不跟随符号链接（防循环）
                     .same_file_system(false) // 跨挂载点也扫描（外置硬盘）
                     .build()
                     .filter_map(|result| {
                         let entry = match result {
-                            Ok(e)  => e,
+                            Ok(e) => e,
                             Err(e) => {
                                 tracing::debug!("Walk error (skipping): {e}");
                                 return None;
@@ -89,13 +91,17 @@ impl FileWalker {
                         }
 
                         let path = entry.into_path();
-                        if is_supported(&path) { Some(path) } else { None }
+                        if is_supported(&path) {
+                            Some(path)
+                        } else {
+                            None
+                        }
                     })
             })
             .collect();
 
         BatchIterator {
-            inner:      Box::new(all_paths.into_iter()),
+            inner: Box::new(all_paths.into_iter()),
             batch_size,
         }
     }
@@ -130,7 +136,7 @@ impl FileWalker {
 // ─────────────────────────────────────────────────────────
 
 struct BatchIterator {
-    inner:      Box<dyn Iterator<Item = PathBuf>>,
+    inner: Box<dyn Iterator<Item = PathBuf>>,
     batch_size: usize,
 }
 
@@ -149,7 +155,11 @@ impl Iterator for BatchIterator {
             }
         }
 
-        if batch.is_empty() { None } else { Some(Ok(batch)) }
+        if batch.is_empty() {
+            None
+        } else {
+            Some(Ok(batch))
+        }
     }
 }
 

@@ -11,7 +11,7 @@
 //   get_photo_tags   — 获取照片的所有标签
 
 use crate::error::{AppError, Result};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,11 +22,11 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tag {
-    pub id:          String,
-    pub name:        String,
-    pub color:       String,
-    pub created_at:  String,
-    pub sort_order:  i32,
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub created_at: String,
+    pub sort_order: i32,
     pub usage_count: i32,
 }
 
@@ -45,11 +45,11 @@ pub fn list_tags(conn: &Connection) -> Result<Vec<Tag>> {
     let tags = stmt
         .query_map([], |row| {
             Ok(Tag {
-                id:          row.get(0)?,
-                name:        row.get(1)?,
-                color:       row.get(2)?,
-                created_at:  row.get(3)?,
-                sort_order:  row.get(4)?,
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+                created_at: row.get(3)?,
+                sort_order: row.get(4)?,
                 usage_count: row.get(5)?,
             })
         })?
@@ -69,11 +69,11 @@ pub fn get_photo_tags(conn: &Connection, photo_id: &str) -> Result<Vec<Tag>> {
     let tags = stmt
         .query_map(params![photo_id], |row| {
             Ok(Tag {
-                id:          row.get(0)?,
-                name:        row.get(1)?,
-                color:       row.get(2)?,
-                created_at:  row.get(3)?,
-                sort_order:  row.get(4)?,
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+                created_at: row.get(3)?,
+                sort_order: row.get(4)?,
                 usage_count: row.get(5)?,
             })
         })?
@@ -108,14 +108,16 @@ pub fn create_tag(conn: &Connection, name: &str, color: &str) -> Result<Tag> {
     let tag = conn.query_row(
         "SELECT id, name, color, created_at, sort_order, usage_count FROM tags WHERE id = ?1",
         params![id],
-        |row| Ok(Tag {
-            id:          row.get(0)?,
-            name:        row.get(1)?,
-            color:       row.get(2)?,
-            created_at:  row.get(3)?,
-            sort_order:  row.get(4)?,
-            usage_count: row.get(5)?,
-        }),
+        |row| {
+            Ok(Tag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+                created_at: row.get(3)?,
+                sort_order: row.get(4)?,
+                usage_count: row.get(5)?,
+            })
+        },
     )?;
     Ok(tag)
 }
@@ -136,7 +138,9 @@ pub fn delete_tag(conn: &Connection, id: &str) -> Result<()> {
 /// 为照片添加标签（幂等，INSERT OR IGNORE 跳过已存在的关联）
 /// 触发器自动递增 tags.usage_count
 pub fn add_photo_tags(conn: &Connection, photo_id: &str, tag_ids: &[String]) -> Result<()> {
-    if tag_ids.is_empty() { return Ok(()); }
+    if tag_ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for tag_id in tag_ids {
         tx.execute(
@@ -151,7 +155,9 @@ pub fn add_photo_tags(conn: &Connection, photo_id: &str, tag_ids: &[String]) -> 
 /// 从照片移除标签
 /// 触发器自动递减 tags.usage_count
 pub fn remove_photo_tags(conn: &Connection, photo_id: &str, tag_ids: &[String]) -> Result<()> {
-    if tag_ids.is_empty() { return Ok(()); }
+    if tag_ids.is_empty() {
+        return Ok(());
+    }
     let tx = conn.unchecked_transaction()?;
     for tag_id in tag_ids {
         tx.execute(

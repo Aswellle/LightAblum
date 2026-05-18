@@ -22,9 +22,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThumbSize {
-    S,  // 200×200  —— 网格密集视图
-    M,  // 600×600  —— 标准网格 / 瀑布流 / 大图预览过渡帧
-    L,  // 1600×1600 —— 大图预览（按需生成）
+    S, // 200×200  —— 网格密集视图
+    M, // 600×600  —— 标准网格 / 瀑布流 / 大图预览过渡帧
+    L, // 1600×1600 —— 大图预览（按需生成）
 }
 
 impl ThumbSize {
@@ -66,7 +66,7 @@ impl ThumbSize {
 pub fn thumb_path(
     thumb_dir: &std::path::Path,
     file_hash: &str,
-    size:      ThumbSize,
+    size: ThumbSize,
 ) -> std::path::PathBuf {
     let prefix = &file_hash[..2.min(file_hash.len())];
     thumb_dir
@@ -91,15 +91,15 @@ pub fn ensure_bucket_dir(
 
 /// 需要路由到 Sharp sidecar 的文件扩展名（小写）
 pub const SIDECAR_FORMATS: &[&str] = &[
-    "heic", "heif",               // iPhone / HEIF
-    "cr2", "cr3",                 // Canon RAW
-    "nef",                        // Nikon RAW
-    "arw",                        // Sony RAW
-    "dng",                        // Adobe DNG
-    "orf",                        // Olympus RAW
-    "rw2",                        // Panasonic RAW
-    "raf",                        // Fujifilm RAW
-    "avif",                       // AVIF（image crate 支持有限）
+    "heic", "heif", // iPhone / HEIF
+    "cr2", "cr3",  // Canon RAW
+    "nef",  // Nikon RAW
+    "arw",  // Sony RAW
+    "dng",  // Adobe DNG
+    "orf",  // Olympus RAW
+    "rw2",  // Panasonic RAW
+    "raf",  // Fujifilm RAW
+    "avif", // AVIF（image crate 支持有限）
 ];
 
 pub fn needs_sidecar(path: &std::path::Path) -> bool {

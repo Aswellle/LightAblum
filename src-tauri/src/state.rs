@@ -21,13 +21,11 @@
 //        f. 每批变化后 emit library:changed（携带路径数组，与前端类型对齐）
 //     3. 暴露 register_watch / unregister_watch 供 scan.rs 命令动态更新
 
-use crate::error::{AppError, Result};
 use crate::db::{
-    self,
-    SqlitePhotoRepository, SqliteAlbumRepository,
-    SqliteTagRepository, SqliteUndoRepository,
-    PhotoRepository, AlbumRepository, TagRepository, UndoRepository,
+    self, AlbumRepository, PhotoRepository, SqliteAlbumRepository, SqlitePhotoRepository,
+    SqliteTagRepository, SqliteUndoRepository, TagRepository, UndoRepository,
 };
+use crate::error::{AppError, Result};
 use crate::scanner::watcher::{self as fs_watcher, FsWatcher};
 use crate::thumbnail::{
     cache::{self, SharedCache},
@@ -61,7 +59,7 @@ impl r2d2::CustomizeConnection<rusqlite::Connection, rusqlite::Error> for ConnCu
              PRAGMA mmap_size    = 268435456;
              PRAGMA cache_size   = -32000;
              PRAGMA temp_store   = MEMORY;
-             PRAGMA busy_timeout = 5000;"
+             PRAGMA busy_timeout = 5000;",
         )
     }
 }
@@ -79,9 +77,9 @@ pub struct AppState {
     /// 相册仓库
     pub albums: Arc<dyn AlbumRepository>,
     /// 标签仓库
-    pub tags:   Arc<dyn TagRepository>,
+    pub tags: Arc<dyn TagRepository>,
     /// Undo 仓库
-    pub undo:   Arc<dyn UndoRepository>,
+    pub undo: Arc<dyn UndoRepository>,
 
     /// 应用数据目录：%APPDATA%/LightAlbum/
     pub data_dir: PathBuf,
@@ -128,12 +126,15 @@ impl AppState {
             .map_err(|e| AppError::Other(format!("Failed to create DB pool: {e}")))?;
 
         let db_arc = Arc::new(pool.clone());
-        let photos: Arc<dyn PhotoRepository> = Arc::new(SqlitePhotoRepository::new(Arc::clone(&db_arc)));
-        let albums: Arc<dyn AlbumRepository> = Arc::new(SqliteAlbumRepository::new(Arc::clone(&db_arc)));
-        let tags:   Arc<dyn TagRepository>   = Arc::new(SqliteTagRepository::new(Arc::clone(&db_arc)));
-        let undo:   Arc<dyn UndoRepository>  = Arc::new(SqliteUndoRepository::new(Arc::clone(&db_arc)));
+        let photos: Arc<dyn PhotoRepository> =
+            Arc::new(SqlitePhotoRepository::new(Arc::clone(&db_arc)));
+        let albums: Arc<dyn AlbumRepository> =
+            Arc::new(SqliteAlbumRepository::new(Arc::clone(&db_arc)));
+        let tags: Arc<dyn TagRepository> = Arc::new(SqliteTagRepository::new(Arc::clone(&db_arc)));
+        let undo: Arc<dyn UndoRepository> =
+            Arc::new(SqliteUndoRepository::new(Arc::clone(&db_arc)));
 
-        let cache   = cache::new_shared(thumb_dir.clone(), cache::DEFAULT_MAX_BYTES);
+        let cache = cache::new_shared(thumb_dir.clone(), cache::DEFAULT_MAX_BYTES);
         let sidecar = Arc::new(Mutex::new(SidecarHandle::new(data_dir.clone())));
 
         Ok(Self {
@@ -145,15 +146,17 @@ impl AppState {
             data_dir,
             thumb_dir,
             scan_status: Arc::new(Mutex::new(ScanStatus::default())),
-            pipeline:    Mutex::new(None),
+            pipeline: Mutex::new(None),
             cache,
             sidecar,
-            watcher:     Mutex::new(None),
+            watcher: Mutex::new(None),
         })
     }
 
     pub fn conn(&self) -> Result<DbConn> {
-        self.db.get().map_err(|e| AppError::Other(format!("DB pool error: {e}")))
+        self.db
+            .get()
+            .map_err(|e| AppError::Other(format!("DB pool error: {e}")))
     }
 
     pub fn init_db(&self) -> Result<()> {
@@ -165,8 +168,8 @@ impl AppState {
     /// 启动缩略图工作线程池（Round-3 F-02：&self 签名）
     pub fn start_pipeline(&self, app: tauri::AppHandle) {
         let worker_count = (num_cpus() / 2).clamp(1, 4);
-        let pipeline     = Arc::new(ThumbnailPipeline::new());
-        let p_clone      = Arc::clone(&pipeline);
+        let pipeline = Arc::new(ThumbnailPipeline::new());
+        let p_clone = Arc::clone(&pipeline);
 
         pipeline::start_workers(
             p_clone,
@@ -199,10 +202,12 @@ impl AppState {
     /// 注意：watcher（Debouncer）必须保持存活，存入 self.watcher。
     pub fn start_watcher(&self, app: tauri::AppHandle) {
         // 1. 读取已有 watched_folders（启动时恢复监听）
-        let folders: Vec<String> = self.conn()
+        let folders: Vec<String> = self
+            .conn()
             .and_then(|conn: DbConn| {
                 let mut stmt = conn.prepare("SELECT path FROM watched_folders")?;
-                let paths = stmt.query_map([], |row: &rusqlite::Row<'_>| row.get::<_, String>(0))?
+                let paths = stmt
+                    .query_map([], |row: &rusqlite::Row<'_>| row.get::<_, String>(0))?
                     .filter_map(|r: rusqlite::Result<String>| r.ok())
                     .collect();
                 Ok(paths)
@@ -232,7 +237,7 @@ impl AppState {
         *self.watcher.lock().unwrap() = Some(watcher);
 
         // 5. 克隆后台线程所需的句柄
-        let db           = self.db.clone();
+        let db = self.db.clone();
         let pipeline_opt = self.pipeline.lock().unwrap().clone();
 
         // 6. 后台线程：消费 FsChange 事件 → 更新 DB → 入队缩略图 → 通知前端
@@ -282,7 +287,7 @@ impl AppState {
 
     pub fn save_settings(&self, settings: &AppSettings) -> Result<()> {
         let path = self.data_dir.join("settings.json");
-        let raw  = serde_json::to_string_pretty(settings)?;
+        let raw = serde_json::to_string_pretty(settings)?;
         std::fs::write(&path, raw)?;
         Ok(())
     }
@@ -308,21 +313,21 @@ fn num_cpus() -> usize {
 /// 每批次处理完毕统一发送一次 library:changed，避免事件风暴。
 /// payload 携带路径数组（与前端 LibraryChangedPayload 类型对齐）。
 fn handle_watch_events(
-    rx:       std::sync::mpsc::Receiver<Vec<crate::scanner::watcher::FsChange>>,
-    db:       DbPool,
+    rx: std::sync::mpsc::Receiver<Vec<crate::scanner::watcher::FsChange>>,
+    db: DbPool,
     pipeline: Option<Arc<ThumbnailPipeline>>,
-    app:      tauri::AppHandle,
+    app: tauri::AppHandle,
 ) {
     use crate::db::photo as photo_db;
     use crate::metadata::{exif as exif_meta, hasher};
     use crate::scanner::watcher::FsChange;
-    use crate::thumbnail::pipeline::{Priority, PipelineTask};
+    use crate::thumbnail::pipeline::{PipelineTask, Priority};
     use tauri::Emitter;
 
     for changes in &rx {
-        let mut added_paths:    Vec<String> = Vec::new();
+        let mut added_paths: Vec<String> = Vec::new();
         let mut modified_paths: Vec<String> = Vec::new();
-        let mut removed_paths:  Vec<String> = Vec::new();
+        let mut removed_paths: Vec<String> = Vec::new();
 
         for change in changes {
             match change {
@@ -357,44 +362,45 @@ fn handle_watch_events(
                     let mut exif = exif_meta::extract(&path).unwrap_or_default();
                     exif_meta::enrich_dimensions(&mut exif, &path);
 
-                    let hash = hasher::hash_file(&path).unwrap_or_else(|_| {
-                        uuid::Uuid::new_v4().to_string()
-                    });
-                    let ext = path.extension()
+                    let hash = hasher::hash_file(&path)
+                        .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string());
+                    let ext = path
+                        .extension()
                         .and_then(|e| e.to_str())
                         .unwrap_or("unknown");
                     let created_at = exif.created_at.unwrap_or_else(|| modified_at.clone());
-                    let file_name  = path.file_name()
+                    let file_name = path
+                        .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or("")
                         .to_string();
 
                     let new_photo = photo_db::NewPhoto {
-                        file_path:    file_path.clone(),
+                        file_path: file_path.clone(),
                         file_name,
                         file_size,
-                        file_hash:    hash.clone(),
-                        width:        exif.width.unwrap_or(0) as i32,
-                        height:       exif.height.unwrap_or(0) as i32,
-                        orientation:  exif.orientation,
-                        format:       exif_meta::normalize_format(ext).to_string(),
+                        file_hash: hash.clone(),
+                        width: exif.width.unwrap_or(0) as i32,
+                        height: exif.height.unwrap_or(0) as i32,
+                        orientation: exif.orientation,
+                        format: exif_meta::normalize_format(ext).to_string(),
                         created_at,
                         modified_at,
                         folder_path,
-                        gps_lat:      exif.gps_lat,
-                        gps_lng:      exif.gps_lng,
-                        camera_make:  exif.camera_make,
+                        gps_lat: exif.gps_lat,
+                        gps_lng: exif.gps_lng,
+                        camera_make: exif.camera_make,
                         camera_model: exif.camera_model,
-                        lens_model:   exif.lens_model,
+                        lens_model: exif.lens_model,
                         focal_length: exif.focal_length,
-                        aperture:     exif.aperture,
-                        shutter_speed:exif.shutter_speed,
-                        iso:          exif.iso,
-                        exposure_comp:exif.exposure_comp,
+                        aperture: exif.aperture,
+                        shutter_speed: exif.shutter_speed,
+                        iso: exif.iso,
+                        exposure_comp: exif.exposure_comp,
                     };
 
                     let conn = match db.get() {
-                        Ok(c)  => c,
+                        Ok(c) => c,
                         Err(e) => {
                             tracing::error!("Watcher: DB pool error (Created): {e}");
                             continue;
@@ -409,10 +415,10 @@ fn handle_watch_events(
                             if let Some(ref p) = pipeline {
                                 if let Ok(Some(photo)) = photo_db::get_by_path(&conn, &file_path) {
                                     p.enqueue(PipelineTask {
-                                        photo_id:  photo.id,
+                                        photo_id: photo.id,
                                         file_path: file_path.clone(),
                                         file_hash: hash,
-                                        priority:  Priority::Low,
+                                        priority: Priority::Low,
                                         need_large: false,
                                     });
                                 }
@@ -432,7 +438,7 @@ fn handle_watch_events(
                 FsChange::Modified(path) => {
                     let file_path = path.to_string_lossy().to_string();
                     let conn = match db.get() {
-                        Ok(c)  => c,
+                        Ok(c) => c,
                         Err(e) => {
                             tracing::error!("Watcher: DB pool error (Modified): {e}");
                             continue;
@@ -457,30 +463,33 @@ fn handle_watch_events(
                             let mut exif = exif_meta::extract(&path).unwrap_or_default();
                             exif_meta::enrich_dimensions(&mut exif, &path);
                             let hash = hasher::hash_file(&path).unwrap_or(photo.file_hash.clone());
-                            let ext  = path.extension().and_then(|e| e.to_str()).unwrap_or("unknown");
+                            let ext = path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("unknown");
 
                             let updated = photo_db::NewPhoto {
-                                file_path:    file_path.clone(),
-                                file_name:    photo.file_name.clone(),
+                                file_path: file_path.clone(),
+                                file_name: photo.file_name.clone(),
                                 file_size,
-                                file_hash:    hash,
-                                width:        exif.width.unwrap_or(photo.width as u32) as i32,
-                                height:       exif.height.unwrap_or(photo.height as u32) as i32,
-                                orientation:  exif.orientation,
-                                format:       exif_meta::normalize_format(ext).to_string(),
-                                created_at:   exif.created_at.unwrap_or(photo.created_at),
+                                file_hash: hash,
+                                width: exif.width.unwrap_or(photo.width as u32) as i32,
+                                height: exif.height.unwrap_or(photo.height as u32) as i32,
+                                orientation: exif.orientation,
+                                format: exif_meta::normalize_format(ext).to_string(),
+                                created_at: exif.created_at.unwrap_or(photo.created_at),
                                 modified_at,
-                                folder_path:  photo.folder_path,
-                                gps_lat:      exif.gps_lat.or(photo.gps_lat),
-                                gps_lng:      exif.gps_lng.or(photo.gps_lng),
-                                camera_make:  exif.camera_make.or(photo.camera_make),
+                                folder_path: photo.folder_path,
+                                gps_lat: exif.gps_lat.or(photo.gps_lat),
+                                gps_lng: exif.gps_lng.or(photo.gps_lng),
+                                camera_make: exif.camera_make.or(photo.camera_make),
                                 camera_model: exif.camera_model.or(photo.camera_model),
-                                lens_model:   exif.lens_model.or(photo.lens_model),
+                                lens_model: exif.lens_model.or(photo.lens_model),
                                 focal_length: exif.focal_length.or(photo.focal_length),
-                                aperture:     exif.aperture.or(photo.aperture),
-                                shutter_speed:exif.shutter_speed.or(photo.shutter_speed),
-                                iso:          exif.iso.or(photo.iso),
-                                exposure_comp:exif.exposure_comp.or(photo.exposure_comp),
+                                aperture: exif.aperture.or(photo.aperture),
+                                shutter_speed: exif.shutter_speed.or(photo.shutter_speed),
+                                iso: exif.iso.or(photo.iso),
+                                exposure_comp: exif.exposure_comp.or(photo.exposure_comp),
                             };
 
                             if photo_db::update_metadata(&conn, &file_path, &updated)
@@ -497,7 +506,7 @@ fn handle_watch_events(
                 FsChange::Removed(path) => {
                     let file_path = path.to_string_lossy().to_string();
                     let conn = match db.get() {
-                        Ok(c)  => c,
+                        Ok(c) => c,
                         Err(e) => {
                             tracing::error!("Watcher: DB pool error (Removed): {e}");
                             continue;
@@ -512,10 +521,7 @@ fn handle_watch_events(
         }
 
         // ── 批次结束：一次性通知前端刷新（避免多次 invalidate）──
-        if !added_paths.is_empty()
-            || !modified_paths.is_empty()
-            || !removed_paths.is_empty()
-        {
+        if !added_paths.is_empty() || !modified_paths.is_empty() || !removed_paths.is_empty() {
             let _ = app.emit(
                 "library:changed",
                 serde_json::json!({
@@ -538,7 +544,7 @@ fn handle_watch_events(
 ///
 /// 例：watched_folders = ["/photos", "/photos/vacation"]
 ///     path = "/photos/vacation/img.jpg" → "/photos/vacation"（最长匹配）
-fn find_folder_for_path(db: &DbPool, path: &PathBuf) -> Option<String> {
+fn find_folder_for_path(db: &DbPool, path: &std::path::Path) -> Option<String> {
     let file_path = path.to_string_lossy().to_string();
     // 统一路径分隔符（Windows 兼容）
     let file_path_norm = file_path.replace('\\', "/");
@@ -569,35 +575,35 @@ fn find_folder_for_path(db: &DbPool, path: &PathBuf) -> Option<String> {
 #[serde(rename_all = "camelCase")]
 pub struct ScanStatus {
     pub is_scanning: bool,
-    pub total:       u64,
-    pub done:        u64,
-    pub new_photos:  u64,
-    pub progress:    Option<serde_json::Value>,
+    pub total: u64,
+    pub done: u64,
+    pub new_photos: u64,
+    pub progress: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
-    pub theme:                   String,
-    pub grid_density:            u32,
-    pub sort_by:                 String,
-    pub sort_asc:                bool,
-    pub watched_folders:         Vec<String>,
-    pub sidebar_width:           u32,
-    pub auto_hide_preview_ui:    bool,
+    pub theme: String,
+    pub grid_density: u32,
+    pub sort_by: String,
+    pub sort_asc: bool,
+    pub watched_folders: Vec<String>,
+    pub sidebar_width: u32,
+    pub auto_hide_preview_ui: bool,
     pub preview_on_double_click: bool,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            theme:                   "system".into(),
-            grid_density:            2,
-            sort_by:                 "created_at".into(),
-            sort_asc:                false,
-            watched_folders:         vec![],
-            sidebar_width:           220,
-            auto_hide_preview_ui:    true,
+            theme: "system".into(),
+            grid_density: 2,
+            sort_by: "created_at".into(),
+            sort_asc: false,
+            watched_folders: vec![],
+            sidebar_width: 220,
+            auto_hide_preview_ui: true,
             preview_on_double_click: false,
         }
     }

@@ -1,10 +1,10 @@
 // src-tauri/src/db/repositories/mod.rs
-pub mod photo;
 pub mod album;
+pub mod photo;
 pub mod tag;
 pub mod undo;
 
-pub use photo::{PhotoRepository, SqlitePhotoRepository};
 pub use album::{AlbumRepository, SqliteAlbumRepository};
-pub use tag::{TagRepository, SqliteTagRepository};
-pub use undo::{UndoRepository, SqliteUndoRepository};
+pub use photo::{PhotoRepository, SqlitePhotoRepository};
+pub use tag::{SqliteTagRepository, TagRepository};
+pub use undo::{SqliteUndoRepository, UndoRepository};

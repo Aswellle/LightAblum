@@ -26,7 +26,7 @@ pub struct PhotoFilter {
 
     /// 拍摄时间范围（ISO 8601 字符串）
     pub date_from: Option<String>,
-    pub date_to:   Option<String>,
+    pub date_to: Option<String>,
 
     /// true = 仅显示有 GPS 信息的照片
     pub has_gps: Option<bool>,
