@@ -169,7 +169,7 @@ let activeAlbumToken = ''
 function usePinInput(
   active:    boolean,
   albumId:   string,
-  digits:    string[],
+  _digits:   string[],
   setDigits: React.Dispatch<React.SetStateAction<string[]>>,
   onComplete: (pin: string) => void,
 ) {
@@ -562,7 +562,7 @@ export const CreatePrivateAlbumDialog = memo(function CreatePrivateAlbumDialog({
   const [confirmPin, setConfirmPin] = useState(['', '', '', '', '', ''])
   const [nameError, setNameError]   = useState<string | null>(null)
   const [pinError, setPinError]     = useState<string | null>(null)
-  const [pwShake, setPwShake]       = useState(false)
+  const [pwShake, _setPwShake]      = useState(false)
   const [cfShake, setCfShake]       = useState(false)
   const [creating, setCreating]     = useState(false)
   const nameInputRef                = useRef<HTMLInputElement>(null)

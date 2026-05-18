@@ -196,7 +196,7 @@ interface AlbumItemProps {
 }
 
 const AlbumItem = memo(function AlbumItem({
-  album, active, onClick, onRename, onDelete, onContext,
+  album, active, onClick, onRename, onDelete: _onDelete, onContext,
 }: AlbumItemProps) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [editName, setEditName]     = useState(album.name)
@@ -298,7 +298,7 @@ interface FolderItemProps {
 }
 
 const FolderItem = memo(function FolderItem({
-  folder, active, onClick, onRemove, onContext,
+  folder, active, onClick, onRemove: _onRemove, onContext,
 }: FolderItemProps) {
   const displayName = folder.path.split(/[/\\]/).filter(Boolean).pop() ?? folder.path
   return (

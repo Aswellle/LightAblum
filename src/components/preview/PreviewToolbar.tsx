@@ -228,14 +228,15 @@ export const PreviewToolbar = memo(function PreviewToolbar({ photoId }: PreviewT
 
   // ── 分享（复制路径到剪贴板）────────────────────────
   const handleShare = useCallback(async () => {
-    if (!currentPhoto) return
+    if (!photoId) return
     try {
-      await navigator.clipboard.writeText(currentPhoto.filePath)
+      const photo = await api.photos.get(photoId)
+      await navigator.clipboard.writeText(photo.filePath)
       toast.success('文件路径已复制到剪贴板')
     } catch {
       toast.error('复制失败')
     }
-  }, [currentPhoto])
+  }, [photoId])
 
   return (
     <>

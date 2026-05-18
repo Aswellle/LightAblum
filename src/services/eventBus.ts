@@ -44,7 +44,6 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { TauriEventMap } from '@/types/ipc'
-import { usePhotoStore } from '@/stores/photoStore'
 import { useUiStore, toast } from '@/stores/uiStore'
 
 // ─────────────────────────────────────────────────────────
@@ -85,7 +84,6 @@ function listenTyped<K extends keyof TauriEventMap>(
  */
 export function useEventBus(): void {
   const queryClient     = useQueryClient()
-  const updatePhoto     = usePhotoStore((s) => s.updatePhoto)
   const setScanProgress = useUiStore((s) => s.setScanProgress)
   const setIsScanning   = useUiStore((s) => s.setIsScanning)
 

@@ -183,7 +183,6 @@ const DensityControl = memo(function DensityControl() {
   const density      = useLayoutStore(selectDensity)
   const densityLabel = useLayoutStore(selectDensityLabel)
   const mode         = useLayoutStore(selectMode)
-  const stepDensity  = useLayoutStore((s) => s.stepDensity)
   const setDensity   = useLayoutStore((s) => s.setDensity)
 
   const levels = [1, 2, 3, 4] as DensityLevel[]

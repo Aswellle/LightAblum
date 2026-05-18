@@ -21,8 +21,6 @@
 
 import { useRef, useCallback, useEffect, useState } from 'react'
 
-/** 认为"停止"的速度阈值 (px/s) */
-const STOP_THRESHOLD   = 50
 /** 停止后延迟升级质量的时间 (ms)，对应 PRD 中的 200ms */
 const QUALITY_DELAY_MS = 200
 /** EMA 平滑系数（0.2 = 强平滑，避免抖动） */

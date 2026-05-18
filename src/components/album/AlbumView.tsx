@@ -29,11 +29,10 @@ import {
   useEffect,
   memo,
 } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/services/tauriIpc'
 import { useUiStore, selectCurrentView } from '@/stores/uiStore'
-import { usePhotoStore, selectPhotos } from '@/stores/photoStore'
+
 import { useConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Icon } from '@/components/common/Icon'
 import { PhotoGrid } from '@/components/grid/PhotoGrid'

@@ -37,7 +37,6 @@ import { useEffect, useRef, useCallback } from 'react'
 import {
   loadThumbnail,
   preloadThumbnails,
-  ThumbNotReadyError,
   isThumbNotReady,
   type ThumbPriority,
 } from '@/services/thumbnailLoader'

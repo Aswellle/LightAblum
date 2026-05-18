@@ -291,7 +291,7 @@ export const GridItem = memo(function GridItem({ photo, size, allIds }: GridItem
     const albumSubmenu = albums.map((album) => ({
       id:    `add-${album.id}`,
       label: album.name,
-      icon:  (album.isPrivate ? 'lock' : 'book') as const,
+      icon:  (album.isPrivate ? 'lock' : 'book') as 'lock' | 'book',
       onClick: () => {
         api.albums.addPhotos(album.id, selectedIds)
           .then(() => {
@@ -394,7 +394,7 @@ export const GridItem = memo(function GridItem({ photo, size, allIds }: GridItem
           ...(!isPrivateAlbum ? [{
             id:      'favorite',
             label:   photo.isFavorite ? '取消收藏' : '收藏',
-            icon:    (photo.isFavorite ? 'heart-fill' : 'heart') as const,
+            icon:    (photo.isFavorite ? 'heart-fill' : 'heart') as 'heart-fill' | 'heart',
             onClick: () => {
               const newFav = !photo.isFavorite
               // Fix: update photoStore immediately (heart badge) + invalidate cache (favorites view)

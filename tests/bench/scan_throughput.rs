@@ -14,7 +14,7 @@
 // 运行命令：
 //   cargo bench --bench scan_throughput
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use light_album_lib::db::{photo, schema};
 use light_album_lib::query::filter::PhotoFilter;
 use rusqlite::Connection;
@@ -26,7 +26,8 @@ use std::path::Path;
 
 fn setup_db() -> Connection {
     let conn = Connection::open_in_memory().expect("in-memory DB failed");
-    conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;").unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
+        .unwrap();
     schema::run_migrations(&conn, Path::new("")).expect("migration failed");
     conn
 }
@@ -34,26 +35,26 @@ fn setup_db() -> Connection {
 fn make_photo_batch(start: usize, count: usize) -> Vec<photo::NewPhoto> {
     (start..start + count)
         .map(|i| photo::NewPhoto {
-            file_path:     format!("D:/Photos/{i:06}.jpg"),
-            file_name:     format!("{i:06}.jpg"),
-            file_size:     (1024 * 1024 + i as i64 * 100) % (20 * 1024 * 1024),  // 1–20MB 变化
-            file_hash:     format!("deadbeef{i:016x}"),
-            width:         3024,
-            height:        4032,
-            orientation:   1,
-            format:        "jpeg".to_string(),
-            created_at:    format!("2024-{:02}-{:02}T10:30:00Z", (i % 12) + 1, (i % 28) + 1),
-            modified_at:   "2024-06-15T10:30:00Z".to_string(),
-            folder_path:   "D:/Photos".to_string(),
-            gps_lat:       if i % 3 == 0 { Some(35.681236) } else { None },
-            gps_lng:       if i % 3 == 0 { Some(139.767125) } else { None },
-            camera_make:   Some("Canon".to_string()),
-            camera_model:  Some(format!("EOS R{}", i % 5 + 1)),
-            lens_model:    Some("RF 50mm F1.8".to_string()),
-            focal_length:  Some(50.0),
-            aperture:      Some(1.8),
+            file_path: format!("D:/Photos/{i:06}.jpg"),
+            file_name: format!("{i:06}.jpg"),
+            file_size: (1024 * 1024 + i as i64 * 100) % (20 * 1024 * 1024), // 1–20MB 变化
+            file_hash: format!("deadbeef{i:016x}"),
+            width: 3024,
+            height: 4032,
+            orientation: 1,
+            format: "jpeg".to_string(),
+            created_at: format!("2024-{:02}-{:02}T10:30:00Z", (i % 12) + 1, (i % 28) + 1),
+            modified_at: "2024-06-15T10:30:00Z".to_string(),
+            folder_path: "D:/Photos".to_string(),
+            gps_lat: if i % 3 == 0 { Some(35.681236) } else { None },
+            gps_lng: if i % 3 == 0 { Some(139.767125) } else { None },
+            camera_make: Some("Canon".to_string()),
+            camera_model: Some(format!("EOS R{}", i % 5 + 1)),
+            lens_model: Some("RF 50mm F1.8".to_string()),
+            focal_length: Some(50.0),
+            aperture: Some(1.8),
             shutter_speed: Some("1/250".to_string()),
-            iso:           Some(400),
+            iso: Some(400),
             exposure_comp: Some(0.0),
         })
         .collect()
@@ -66,7 +67,7 @@ fn make_photo_batch(start: usize, count: usize) -> Vec<photo::NewPhoto> {
 /// 验证：DB 写入吞吐量支撑 ≥500 张/秒的索引目标
 fn bench_insert_1k(c: &mut Criterion) {
     let mut group = c.benchmark_group("db_insert");
-    group.sample_size(10);  // 数据库操作 sample_size 降低至 10 次
+    group.sample_size(10); // 数据库操作 sample_size 降低至 10 次
 
     for batch_size in [100usize, 500, 1000].iter() {
         group.bench_with_input(
@@ -80,8 +81,7 @@ fn bench_insert_1k(c: &mut Criterion) {
                         (conn, photos)
                     },
                     |(conn, photos)| {
-                        photo::insert_batch(&conn, black_box(&photos))
-                            .expect("insert_batch failed")
+                        photo::insert_batch(&conn, black_box(&photos)).expect("insert_batch failed")
                     },
                 )
             },
@@ -108,16 +108,17 @@ fn bench_query_paged(c: &mut Criterion) {
     group.bench_function("query_first_page_100", |b| {
         let filter = PhotoFilter::default();
         b.iter(|| {
-            photo::query_paged(&conn, black_box(&filter), None, 100)
-                .expect("query_paged failed")
+            photo::query_paged(&conn, black_box(&filter), None, 100).expect("query_paged failed")
         })
     });
 
     group.bench_function("query_with_favorites_filter", |b| {
-        let filter = PhotoFilter { favorites_only: true, ..Default::default() };
+        let filter = PhotoFilter {
+            favorites_only: true,
+            ..Default::default()
+        };
         b.iter(|| {
-            photo::query_paged(&conn, black_box(&filter), None, 100)
-                .expect("query_paged failed")
+            photo::query_paged(&conn, black_box(&filter), None, 100).expect("query_paged failed")
         })
     });
 
@@ -140,7 +141,10 @@ fn bench_search(c: &mut Criterion) {
     group.sample_size(50);
 
     group.bench_function("search_filename_partial", |b| {
-        let q = SearchQuery { text: Some("0001".to_string()), ..Default::default() };
+        let q = SearchQuery {
+            text: Some("0001".to_string()),
+            ..Default::default()
+        };
         b.iter(|| search(&conn, black_box(&q)).expect("search failed"))
     });
 

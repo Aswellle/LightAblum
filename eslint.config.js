@@ -5,6 +5,7 @@
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   // ── 全局忽略 ────────────────────────────────────────────
@@ -35,10 +36,15 @@ export default [
     },
     plugins: {
       "@typescript-eslint": tseslint,
+      "react-hooks": reactHooks,
     },
     rules: {
       // 继承 typescript-eslint 推荐规则
       ...tseslint.configs.recommended.rules,
+
+      // React Hooks 规则
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
 
       // 允许非空断言（Tauri IPC 结果处理中常用）
       "@typescript-eslint/no-non-null-assertion": "warn",

@@ -142,11 +142,6 @@ const TrashActionBar = memo(function TrashActionBar() {
   const hasPhotos     = totalCount > 0
   const hasSelection  = selectedCount > 0
 
-  // 操作目标描述
-  const targetDesc = hasSelection
-    ? `${selectedCount} 张`
-    : `全部 ${totalCount} 张`
-
   // ── 操作目标 IDs（有选择用选择，否则用全部）
   const getTargetIds = useCallback(() =>
     hasSelection ? selectedArr : allIds

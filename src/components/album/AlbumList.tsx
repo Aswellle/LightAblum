@@ -74,7 +74,7 @@ interface AlbumCardProps {
 }
 
 const AlbumCard = memo(function AlbumCard({
-  album, onOpen, onRename, onDelete, onContext,
+  album, onOpen, onRename, onDelete: _onDelete, onContext,
   isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
 }: AlbumCardProps) {
   const [isRenaming, setIsRenaming] = useState(false)

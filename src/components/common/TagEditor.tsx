@@ -31,7 +31,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/services/tauriIpc'
 import { TagBadge } from './TagBadge'
 import type { Tag } from '@/types/ipc'
-import { TAG_PRESET_COLORS } from '@/types/album'
+import { TAG_PRESET_COLORS, type TagColor } from '@/types/album'
 
 // ─────────────────────────────────────────────────────────
 //  Context
@@ -113,7 +113,7 @@ function TagEditorDialog({ photoId, onClose }: TagEditorDialogProps) {
 
   // 新建标签状态
   const [newName,  setNewName]  = useState('')
-  const [newColor, setNewColor] = useState(TAG_PRESET_COLORS[0])
+  const [newColor, setNewColor] = useState<TagColor>(TAG_PRESET_COLORS[0])
   const [creating, setCreating] = useState(false)
 
   // 保存变更

@@ -22,7 +22,7 @@ import { usePhotoQuery } from '@/hooks/usePhotoQuery'
 import { useTagPhotoQuery } from '@/hooks/useTagPhotoQuery'  // Fix: tag search
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { useLayoutStore, selectMode } from '@/stores/layoutStore'
-import { useUiStore, selectCurrentView } from '@/stores/uiStore'
+
 import { usePhotoStore, selectPhotos } from '@/stores/photoStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useConfirmDialog } from '@/components/common/ConfirmDialog'

@@ -19,7 +19,7 @@
  *   VirtualGrid 负责纯渲染，接收 photos（已平铺的数组）
  */
 
-import { useEffect, useCallback, memo, useMemo } from 'react'
+import { useCallback, memo, useMemo } from 'react'
 import { useVirtualGrid, type VirtualRow } from '@/hooks/useVirtualGrid'
 import { useScrollVelocity } from '@/hooks/useScrollVelocity'
 import { usePreloadThumbnails } from '@/hooks/useThumbnail'
@@ -27,7 +27,6 @@ import { useLayoutStore, selectGridConfig } from '@/stores/layoutStore'
 import { usePhotoStore, selectGroups } from '@/stores/photoStore'
 import { DateGroup } from './DateGroup'
 import { GridItem } from './GridItem'
-import type { PhotoThumb } from '@/types/photo'
 
 // ─────────────────────────────────────────────────────────
 //  加载态骨架屏
@@ -159,7 +158,7 @@ export const VirtualGrid = memo(function VirtualGrid({
   const config    = useLayoutStore(selectGridConfig)
   const groups    = usePhotoStore(selectGroups)
 
-  const { velocity, isStopped, isFast, onScroll: onScrollVelocity } = useScrollVelocity()
+  const { isFast, onScroll: onScrollVelocity } = useScrollVelocity()
 
   const {
     containerRef,
@@ -168,7 +167,6 @@ export const VirtualGrid = memo(function VirtualGrid({
     offsetBottom,
     visibleRows,
     allPhotoIds,
-    centerPhotoId,
   } = useVirtualGrid({ groups, config })
 
   // ── 预加载 overscan 区域缩略图 ──

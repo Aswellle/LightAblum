@@ -22,8 +22,8 @@ interface PerformanceSectionProps {
 }
 
 export const PerformanceSection = memo(function PerformanceSection({
-  settings,
-  onChange,
+  settings: _settings,
+  onChange: _onChange,
 }: PerformanceSectionProps) {
   return (
     <div>

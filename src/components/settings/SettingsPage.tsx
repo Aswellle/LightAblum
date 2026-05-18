@@ -24,7 +24,6 @@ import { PerformanceSection } from './sections/PerformanceSection'
 import { StorageSection }     from './sections/StorageSection'
 import { AboutSection }       from './sections/AboutSection'
 import { api } from '@/services/tauriIpc'
-import { useUiStore } from '@/stores/uiStore'
 import type { AppSettings } from '@/types/ipc'
 import type { IconName } from '@/components/common/Icon'
 

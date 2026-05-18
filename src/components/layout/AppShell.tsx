@@ -56,9 +56,9 @@ function TitleBar() {
   return (
     <div className="flex items-center justify-between flex-shrink-0"
       data-tauri-drag-region
-      style={{ height: 'var(--la-titlebar-h)', backgroundColor: 'var(--la-bg-sidebar)', borderBottom: '1px solid var(--la-border)', WebkitAppRegion: 'drag' as never }}
+      style={{ height: 'var(--la-titlebar-h)', backgroundColor: 'var(--la-bg-sidebar)', borderBottom: '1px solid var(--la-border)', WebkitAppRegion: 'drag' }}
     >
-      <div className="flex items-center px-3" style={{ gap: '6px', WebkitAppRegion: 'no-drag' as never }} data-tauri-no-drag>
+      <div className="flex items-center px-3" style={{ gap: '6px', WebkitAppRegion: 'no-drag' }} data-tauri-no-drag>
         <img src="/icon.png" alt="LightAlbum" draggable={false}
           style={{ width: '16px', height: '16px', objectFit: 'contain', flexShrink: 0, userSelect: 'none' }}
         />
@@ -66,7 +66,7 @@ function TitleBar() {
           LightAlbum
         </span>
       </div>
-      <div className="flex items-center h-full" data-tauri-no-drag style={{ WebkitAppRegion: 'no-drag' as never }}>
+      <div className="flex items-center h-full" data-tauri-no-drag style={{ WebkitAppRegion: 'no-drag' }}>
         <TitleBarButton onClick={handleMinimize} label="最小化">
           <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor"><rect width="10" height="1" /></svg>
         </TitleBarButton>

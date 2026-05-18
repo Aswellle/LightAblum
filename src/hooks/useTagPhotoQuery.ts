@@ -17,7 +17,7 @@
  * 使用方：PhotoGrid 中检测当前是否为标签搜索视图，若是则用本 hook。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/services/tauriIpc'
 import { useUiStore, selectCurrentView } from '@/stores/uiStore'

@@ -108,7 +108,7 @@ export interface UseWaterfallGridOptions {
 }
 
 export interface UseWaterfallGridResult {
-  containerRef:  React.RefObject<HTMLDivElement>
+  containerRef:  React.RefObject<HTMLDivElement | null>
   totalHeight:   number
   visibleItems:  WaterfallLayoutItem[]
   allPhotoIds:   string[]

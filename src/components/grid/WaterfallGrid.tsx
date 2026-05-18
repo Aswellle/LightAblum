@@ -17,7 +17,6 @@ import { usePhotoStore, selectPhotos } from '@/stores/photoStore'
 import { usePreviewStore } from '@/stores/previewStore'
 import { useSelectionStore, selectIsSelected } from '@/stores/selectionStore'
 import { Icon } from '@/components/common/Icon'
-import type { PhotoThumb } from '@/types/photo'
 import type { WaterfallLayoutItem } from '@/hooks/useWaterfallGrid'
 
 // ─────────────────────────────────────────────────────────
@@ -31,7 +30,7 @@ interface WaterfallItemProps {
 
 const WaterfallItem = memo(function WaterfallItem({ item, allIds }: WaterfallItemProps) {
   const { photo, x, y, width, height } = item
-  const { url, isLoading } = useThumbnail(photo.id, 'm', 'normal')
+  const { url } = useThumbnail(photo.id, 'm', 'normal')
 
   const isSelected  = useSelectionStore(selectIsSelected(photo.id))
   const select      = useSelectionStore((s) => s.select)
@@ -118,7 +117,7 @@ export const WaterfallGrid = memo(function WaterfallGrid() {
   const config  = useLayoutStore(selectGridConfig)
   const photos  = usePhotoStore(selectPhotos)
   const allIds  = photos.map((p) => p.id)
-  const { isFast, onScroll } = useScrollVelocity()
+  const { onScroll } = useScrollVelocity()
 
   const {
     containerRef,

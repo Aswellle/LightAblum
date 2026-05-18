@@ -25,7 +25,6 @@ import {
   ActionButton,
   SettingNote,
 } from '../SettingsUI'
-import { Icon } from '@/components/common/Icon'
 import { api } from '@/services/tauriIpc'
 import { toast } from '@/stores/uiStore'
 import type { AppSettings } from '@/types/ipc'
@@ -52,7 +51,7 @@ function formatBytes(bytes: number): string {
 // ─────────────────────────────────────────────────────────
 
 export const StorageSection = memo(function StorageSection({
-  settings,
+  settings: _settings,
 }: StorageSectionProps) {
   const [clearingCache, setClearingCache] = useState(false)
   const [openingDir, setOpeningDir]       = useState(false)
@@ -215,13 +214,13 @@ export const StorageSection = memo(function StorageSection({
               color:      'var(--la-text-secondary)',
               fontWeight: 'var(--la-weight-medium)' as unknown as number,
             }}>
-              {formatBytes(storageInfo.thumbCacheBytes)}
+              {formatBytes(storageInfo.thumbnailSizeBytes)}
               <span style={{
                 fontSize: 'var(--la-text-xs)',
                 color:    'var(--la-text-tertiary)',
                 marginLeft: '6px',
               }}>
-                （{storageInfo.thumbFileCount.toLocaleString()} 个文件）
+                （{storageInfo.thumbnailCount.toLocaleString()} 个文件）
               </span>
             </span>
           ) : (
@@ -245,10 +244,10 @@ export const StorageSection = memo(function StorageSection({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
-          title={storageInfo?.thumbDir ?? 'thumbnails/'}
+          title={storageInfo?.dataDir ?? 'thumbnails/'}
           >
-            {storageInfo?.thumbDir
-              ? storageInfo.thumbDir.split(/[/\\]/).slice(-2).join('/')
+            {storageInfo?.dataDir
+              ? storageInfo.dataDir.split(/[/\\]/).slice(-2).join('/')
               : 'thumbnails/'}
           </span>
         </SettingRow>
@@ -264,7 +263,7 @@ export const StorageSection = memo(function StorageSection({
             icon={clearingCache ? undefined : 'trash'}
             variant="danger"
             loading={clearingCache}
-            disabled={clearingCache || (storageInfo?.thumbFileCount === 0)}
+            disabled={clearingCache || (storageInfo?.thumbnailCount === 0)}
           />
         </SettingRow>
 

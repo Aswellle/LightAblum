@@ -260,7 +260,7 @@ export const useUiStore = create<UiStore>()(
     // ── Toast ──
     addToast: (toastInput) => {
       const id = genToastId()
-      const toast: ToastItem = { id, duration: 3000, ...toastInput }
+      const toast: ToastItem = { id, ...toastInput, duration: toastInput.duration ?? 3000 }
 
       set((s) => {
         // 超出最大数量时移除最早的

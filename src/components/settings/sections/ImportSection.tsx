@@ -9,13 +9,11 @@
  */
 
 import { memo, useState, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   SettingSection,
-  SettingRow,
-  ToggleSwitch,
   ActionButton,
   SettingNote,
 } from '../SettingsUI'
@@ -280,8 +278,8 @@ const FolderRow = memo(function FolderRow({
 // ─────────────────────────────────────────────────────────
 
 export const ImportSection = memo(function ImportSection({
-  settings,
-  onChange,
+  settings: _settings,
+  onChange: _onChange,
   queryClient,
 }: ImportSectionProps) {
   const [removingFolder, setRemovingFolder] = useState<WatchedFolder | null>(null)

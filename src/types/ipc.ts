@@ -155,7 +155,7 @@ export interface IpcCommands {
 
   // ── 搜索 ──
   search_photos:      (args: { query: SearchQuery }) => PhotoPage
-  search_suggestions: (args: { q: string; limit?: number }) => { fileNames: string[]; cameras: string[]; folders: string[] }
+  search_suggestions: (args: { q: string; limit?: number }) => SearchSuggestions
   search_stats:       () => LibraryStats
 
   // ── 缩略图 ──
@@ -205,4 +205,5 @@ export function isIpcError(e: unknown): e is IpcError {
   return typeof e === 'object' && e !== null && 'code' in e
 }
 
-export interface SearchSuggestions { fileNames: string[]; cameras: string[]; folders: string[] }
+export interface TagSuggestion { id: string; name: string; color: string }
+export interface SearchSuggestions { fileNames: string[]; cameras: string[]; folders: string[]; tags: TagSuggestion[] }

@@ -19,7 +19,7 @@
 
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { SourceRect, PreviewDirection } from '@/types/layout'
+import type { SourceRect } from '@/types/layout'
 
 // ─────────────────────────────────────────────────────────
 //  Store 接口

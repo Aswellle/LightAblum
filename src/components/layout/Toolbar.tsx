@@ -44,44 +44,6 @@ const SORT_OPTIONS: { field: PhotoSortField; label: string }[] = [
 ]
 
 // ─────────────────────────────────────────────────────────
-//  ToolbarButton（图标按钮，内部使用）
-// ─────────────────────────────────────────────────────────
-
-interface ToolbarButtonProps {
-  onClick: () => void; label: string; title?: string; active?: boolean; children: React.ReactNode
-}
-
-const ToolbarButton = memo(function ToolbarButton({ onClick, label, title, active, children }: ToolbarButtonProps) {
-  return (
-    <button
-      onClick={onClick} aria-label={label} aria-pressed={active} title={title ?? label}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: '32px', height: '32px', borderRadius: 'var(--la-radius-md)',
-        backgroundColor: active ? 'var(--la-bg-active)' : 'transparent',
-        border: `1px solid ${active ? 'var(--la-border)' : 'transparent'}`,
-        color: active ? 'var(--la-text-primary)' : 'var(--la-text-secondary)',
-        cursor: 'default', transition: 'all 100ms ease', flexShrink: 0,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.backgroundColor = 'var(--la-bg-hover)'
-          e.currentTarget.style.color = 'var(--la-text-primary)'
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.backgroundColor = 'transparent'
-          e.currentTarget.style.color = 'var(--la-text-secondary)'
-        }
-      }}
-    >
-      {children}
-    </button>
-  )
-})
-
-// ─────────────────────────────────────────────────────────
 //  LayoutToggle
 // ─────────────────────────────────────────────────────────
 
@@ -294,7 +256,6 @@ interface ToolbarProps {
 
 export function Toolbar({ allIds = [], totalCount = 0 }: ToolbarProps) {
   const currentView     = useUiStore(selectCurrentView)
-  const mode            = useLayoutStore(selectMode)
   const setMode         = useLayoutStore((s) => s.setMode)
   const stepDensity     = useLayoutStore((s) => s.stepDensity)
   const isSelectionMode = useSelectionStore(selectIsSelectionMode)

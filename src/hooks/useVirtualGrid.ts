@@ -165,7 +165,7 @@ export interface UseVirtualGridOptions {
 }
 
 export interface UseVirtualGridResult {
-  containerRef:  React.RefObject<HTMLDivElement>
+  containerRef:  React.RefObject<HTMLDivElement | null>
   totalHeight:   number
   offsetTop:     number
   offsetBottom:  number

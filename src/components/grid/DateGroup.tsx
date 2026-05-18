@@ -24,8 +24,6 @@ export const DateGroup = memo(function DateGroup({
   label, count, photoIds,
 }: DateGroupProps) {
   const selectedIds = useSelectionStore((s) => s.selectedIds)
-  const selectAll   = useSelectionStore((s) => s.selectAll)
-  const clearSelection = useSelectionStore((s) => s.clearSelection)
 
   // 判断本组是否全部已选中
   const allSelected =

@@ -29,7 +29,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useCallback,
   memo,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
@@ -109,7 +108,7 @@ interface SubMenuProps {
   flipX:    boolean
 }
 
-const SubMenu = memo(function SubMenu({ items, onClose, parentWidth, flipX }: SubMenuProps) {
+const SubMenu = memo(function SubMenu({ items, onClose, parentWidth: _parentWidth, flipX }: SubMenuProps) {
   return (
     <motion.div
       initial={{ opacity: 0, x: flipX ? 8 : -8, scale: 0.97 }}

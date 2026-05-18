@@ -53,7 +53,7 @@ export interface GestureState {
 
 export interface UsePreviewGestureResult {
   gestureState:  GestureState
-  containerRef:  RefObject<HTMLDivElement>
+  containerRef:  RefObject<HTMLDivElement | null>
   /** 重置到 Fit 模式（切换照片时调用） */
   reset:         () => void
   /** 强制设置缩放（工具栏按钮用） */

@@ -16,7 +16,6 @@ import {
   SettingSelect,
   ToggleSwitch,
 } from '../SettingsUI'
-import { Icon } from '@/components/common/Icon'
 import { useUiStore } from '@/stores/uiStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import type { AppSettings, AppTheme, PhotoSortField } from '@/types/ipc'
@@ -51,7 +50,7 @@ const SORT_OPTIONS: { value: PhotoSortField; label: string }[] = [
   { value: 'file_size',   label: '文件大小'         },
 ]
 
-const SORT_DIR_OPTIONS = [
+const SORT_DIR_OPTIONS: Array<{ value: 'desc' | 'asc'; label: string }> = [
   { value: 'desc', label: '从新到旧 ↓' },
   { value: 'asc',  label: '从旧到新 ↑' },
 ]

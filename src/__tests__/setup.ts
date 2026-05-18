@@ -1,4 +1,5 @@
 // src/__tests__/setup.ts
+/// <reference types="vitest/globals" />
 import '@testing-library/jest-dom'
 // Mock Tauri IPC — 测试环境中无 Tauri 运行时
 vi.mock('@/services/tauriIpc', () => ({

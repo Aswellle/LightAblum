@@ -16,7 +16,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { api } from '@/services/tauriIpc'
 import { useUiStore } from '@/stores/uiStore'
-import { Icon } from '@/components/common/Icon'
 
 interface CreateAlbumDialogProps {
   onClose:     () => void

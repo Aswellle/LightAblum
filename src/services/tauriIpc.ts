@@ -19,7 +19,6 @@ import type {
   ThumbSize,
   AppSettings,
   PhotoUpdateParams,
-  Tag,
 } from '@/types/ipc'
 import { isIpcError } from '@/types/ipc'
 import { toast } from '@/stores/uiStore'

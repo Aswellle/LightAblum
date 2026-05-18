@@ -134,7 +134,7 @@ interface PhotoStore {
 // ─────────────────────────────────────────────────────────
 
 export const usePhotoStore = create<PhotoStore>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector((set, _get) => ({
     photos:         [],
     groups:         [],
     total:          0,
