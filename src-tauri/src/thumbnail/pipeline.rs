@@ -106,11 +106,11 @@ impl ThumbnailPipeline {
 
         match result {
             Ok(()) => true,
-            Err(TrySendError::Full(_)) => {
-                // 队满丢弃（低优先级允许丢失）
-                let _p = self.pending.lock().unwrap();
-                // key 对应 photo_id，需用 photo_id 删
-                tracing::debug!("Pipeline queue full, task dropped");
+            Err(TrySendError::Full(t)) => {
+                // 队满丢弃 — 必须从 pending 集合中移除，否则该 photo_id 永远无法重新入队
+                let mut p = self.pending.lock().unwrap();
+                p.remove(&t.photo_id);
+                tracing::debug!("Pipeline queue full, task dropped: {}", t.photo_id);
                 false
             }
             Err(TrySendError::Disconnected(_)) => false,
@@ -124,7 +124,10 @@ impl ThumbnailPipeline {
         priority:  Priority,
         db:        &crate::state::DbPool,
     ) {
-        let conn = db.get().unwrap();
+        let conn = match db.get() {
+            Ok(c)  => c,
+            Err(e) => { tracing::error!("enqueue_batch: DB pool: {e}"); return; }
+        };
         for id in photo_ids {
             if let Ok(Some(p)) = db::photo::get_by_id(&conn, id) {
                 // 检查是否已有缩略图
@@ -365,7 +368,7 @@ fn update_db_thumbnails(
     path_m:   &std::path::Path,
     path_l:   Option<&std::path::Path>,
 ) -> Result<()> {
-    let conn = db.get().unwrap();
+    let conn = db.get().map_err(|e| AppError::Other(format!("DB pool: {e}")))?;
     // ✅ 修复 E0515（cannot return value referencing temporary value）：
     //    原代码 path_l.map(|p| p.to_string_lossy().as_ref()).as_deref() 中，
     //    to_string_lossy() 返回 Cow<str>，.as_ref() 借用了该临时值，
@@ -392,7 +395,10 @@ pub fn enqueue_pending_all(
     pipeline:  &ThumbnailPipeline,
     db:        &crate::state::DbPool,
 ) {
-    let conn = db.get().unwrap();
+    let conn = match db.get() {
+        Ok(c)  => c,
+        Err(e) => { tracing::error!("enqueue_pending_all: DB pool: {e}"); return; }
+    };
     let mut stmt: rusqlite::Statement<'_> = match conn.prepare(
         "SELECT id, file_path, file_hash FROM photos \
          WHERE is_deleted = 0 \

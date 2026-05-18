@@ -31,17 +31,29 @@ async fn apply_undo(state: &AppState, action: &str, payload: &str) -> Result<boo
         "favorite_set" => {
             let id: String = serde_json::from_value(v["id"].clone())
                 .map_err(|e| AppError::Other(e.to_string()))?;
-            let old: bool = v["old_value"].as_bool().unwrap_or(false);
+            let old: bool = v["old_value"]
+                .as_bool()
+                .ok_or_else(|| AppError::Other("undo payload missing 'old_value'".into()))?;
             state.photos.set_favorite(&id, old)?;
             Ok(true)
         }
         "favorite_batch" => {
             let old_values = v["old_values"].as_object()
                 .ok_or_else(|| AppError::Other("invalid undo payload".into()))?;
+            // 按目标值分组，用 set_favorite_batch 批量更新（最多 2 次事务，而非 N 次）
+            let mut ids_true:  Vec<String> = Vec::new();
+            let mut ids_false: Vec<String> = Vec::new();
             for (id, val) in old_values {
-                let fav = val.as_bool().unwrap_or(false);
-                state.photos.set_favorite(id, fav)?;
+                match val.as_bool() {
+                    Some(true)  => ids_true.push(id.clone()),
+                    Some(false) => ids_false.push(id.clone()),
+                    None => return Err(AppError::Other(
+                        format!("invalid bool in favorite_batch undo for id={id}")
+                    )),
+                }
             }
+            if !ids_true.is_empty()  { state.photos.set_favorite_batch(&ids_true,  true)?;  }
+            if !ids_false.is_empty() { state.photos.set_favorite_batch(&ids_false, false)?; }
             Ok(true)
         }
         "album_photos_add" => {

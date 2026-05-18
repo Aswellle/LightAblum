@@ -393,7 +393,13 @@ fn handle_watch_events(
                         exposure_comp:exif.exposure_comp,
                     };
 
-                    let conn = db.get().unwrap();
+                    let conn = match db.get() {
+                        Ok(c)  => c,
+                        Err(e) => {
+                            tracing::error!("Watcher: DB pool error (Created): {e}");
+                            continue;
+                        }
+                    };
                     match photo_db::insert_batch(&conn, &[new_photo]) {
                         Ok(n) if n > 0 => {
                             added_paths.push(file_path.clone());
@@ -425,7 +431,13 @@ fn handle_watch_events(
                 // ── 文件修改：更新元数据 ──
                 FsChange::Modified(path) => {
                     let file_path = path.to_string_lossy().to_string();
-                    let conn = db.get().unwrap();
+                    let conn = match db.get() {
+                        Ok(c)  => c,
+                        Err(e) => {
+                            tracing::error!("Watcher: DB pool error (Modified): {e}");
+                            continue;
+                        }
+                    };
 
                     // 只处理已索引的文件
                     if let Ok(Some(photo)) = photo_db::get_by_path(&conn, &file_path) {
@@ -484,7 +496,13 @@ fn handle_watch_events(
                 // ── 文件删除：软删 ──
                 FsChange::Removed(path) => {
                     let file_path = path.to_string_lossy().to_string();
-                    let conn = db.get().unwrap();
+                    let conn = match db.get() {
+                        Ok(c)  => c,
+                        Err(e) => {
+                            tracing::error!("Watcher: DB pool error (Removed): {e}");
+                            continue;
+                        }
+                    };
                     if let Ok(()) = photo_db::mark_missing(&conn, &file_path) {
                         removed_paths.push(file_path.clone());
                         tracing::info!("Watcher: file removed — {file_path}");

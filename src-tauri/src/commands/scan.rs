@@ -207,7 +207,14 @@ fn run_scan(
         let batch_len = entries.len() as u64;
 
         let diff = {
-            let conn = db.get().unwrap();
+            let conn = match db.get() {
+                Ok(c)  => c,
+                Err(e) => {
+                    tracing::error!("[Scan] DB pool during diff: {e}");
+                    total_errors += batch_len;
+                    continue;
+                }
+            };
             match differ::diff_batch(&conn, &entries) {
                 Ok(d)  => d,
                 Err(e) => {
@@ -260,9 +267,13 @@ fn run_scan(
         }).collect();
 
         if !new_photos.is_empty() {
-            let inserted = {
-                let conn = db.get().unwrap();
-                match photo_db::insert_batch(&conn, &new_photos) {
+            let inserted = match db.get() {
+                Err(e) => {
+                    tracing::error!("[Scan] DB pool during insert: {e}");
+                    total_errors += new_photos.len() as u64;
+                    0u64
+                }
+                Ok(conn) => match photo_db::insert_batch(&conn, &new_photos) {
                     Ok(n)  => n as u64,
                     Err(e) => {
                         tracing::error!("[Scan] Insert batch error: {e}");
@@ -314,7 +325,14 @@ fn run_scan(
         }).collect();
 
         if !updated_photos.is_empty() {
-            let conn = db.get().unwrap();
+            let conn = match db.get() {
+                Ok(c)  => c,
+                Err(e) => {
+                    tracing::error!("[Scan] DB pool during update: {e}");
+                    total_errors += updated_photos.len() as u64;
+                    continue;
+                }
+            };
             match photo_db::update_metadata_batch(&conn, &updated_photos) {
                 Ok(n) => {
                     total_updated += n as u64;
@@ -384,30 +402,32 @@ fn run_scan(
     }
 
     // ── 缺失文件检测 ──
-    let missing_ids = {
-        let conn = db.get().unwrap();
-        differ::find_missing(&conn, &path).unwrap_or_default()
+    let missing_ids = match db.get() {
+        Ok(conn) => differ::find_missing(&conn, &path).unwrap_or_default(),
+        Err(e)   => { tracing::error!("[Scan] DB pool during missing detection: {e}"); vec![] }
     };
     // Phase-A：收集缺失文件的路径（从 DB 查询 file_path），用于数组格式 emit
     let removed_paths: Vec<String> = if !missing_ids.is_empty() {
         tracing::info!("[Scan] {path}: {} files missing from disk", missing_ids.len());
-        let conn = db.get().unwrap();
-        // 先查出路径，再软删
-        let mut paths: Vec<String> = Vec::with_capacity(missing_ids.len());
-        for id in &missing_ids {
-            if let Ok(Some(p)) = photo_db::get_by_id(&conn, id) {
-                paths.push(p.file_path);
+        match db.get() {
+            Err(e) => { tracing::error!("[Scan] DB pool during soft-delete: {e}"); vec![] }
+            Ok(conn) => {
+                let mut paths: Vec<String> = Vec::with_capacity(missing_ids.len());
+                for id in &missing_ids {
+                    if let Ok(Some(p)) = photo_db::get_by_id(&conn, id) {
+                        paths.push(p.file_path);
+                    }
+                }
+                let _ = photo_db::soft_delete(&conn, &missing_ids);
+                paths
             }
         }
-        let _ = photo_db::soft_delete(&conn, &missing_ids);
-        paths
     } else {
         Vec::new()
     };
 
     // ── 更新 watched_folders 统计 ──
-    {
-        let conn = db.get().unwrap();
+    if let Ok(conn) = db.get() {
         let photo_count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM photos WHERE folder_path = ?1 AND is_deleted = 0",
             rusqlite::params![path],
