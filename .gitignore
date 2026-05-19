@@ -22,3 +22,11 @@ src-tauri/binaries/
 # Claude Code / gstack — local development artifacts
 .claude/
 .gbrain-source
+
+# npm lockfile — this project uses pnpm
+package-lock.json
+
+# Internal development artifacts (not for public repo)
+CLAUDE.md
+开发日志/
+docs/superpowers/
