@@ -70,6 +70,12 @@ jobs:
             libssl-dev \
             pkg-config
 
+      - name: Create sidecar placeholder (CI)  # sidecar built separately; stub satisfies tauri-build resource check
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/sharp-worker-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/sharp-worker-x86_64-unknown-linux-gnu
+
       - name: Check formatting
         run: cargo fmt --check
         working-directory: src-tauri
@@ -112,6 +118,12 @@ jobs:
 
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
+
+      - name: Create sidecar placeholder (CI)  # sidecar built separately; stub satisfies tauri-build resource check
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri\binaries | Out-Null
+          New-Item -ItemType File -Force -Path src-tauri\binaries\sharp-worker-x86_64-pc-windows-msvc.exe | Out-Null
 
       - name: Rust check
         run: cargo check
@@ -159,6 +171,12 @@ jobs:
             libssl-dev \
             pkg-config \
             xvfb
+
+      - name: Create sidecar placeholder (CI)  # sidecar built separately; stub satisfies tauri-build resource check
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/sharp-worker-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/sharp-worker-x86_64-unknown-linux-gnu
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
