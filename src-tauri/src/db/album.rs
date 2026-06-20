@@ -304,7 +304,7 @@ pub fn find_best_portrait(conn: &Connection, photo_ids: &[String]) -> Result<Opt
     }
 
     // 降序取最高分（人像优先，分辨率次之）
-    candidates.sort_by(|a, b| b.score.cmp(&a.score));
+    candidates.sort_by_key(|c| std::cmp::Reverse(c.score));
     Ok(Some(candidates[0].id.clone()))
 }
 
