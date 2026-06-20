@@ -16,12 +16,16 @@ jobs:
         platform:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            sidecar: win
           - os: macos-latest
             target: aarch64-apple-darwin
+            sidecar: mac_arm64
           - os: macos-latest
             target: x86_64-apple-darwin
+            sidecar: mac_x64
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            sidecar: linux
 
     runs-on: ${{ matrix.platform.os }}
     steps:
@@ -58,7 +62,7 @@ jobs:
         working-directory: sidecar
 
       - name: Build sidecar
-        run: node scripts/bundle.js
+        run: node scripts/bundle.js --platform ${{ matrix.platform.sidecar }}
         working-directory: sidecar
 
       - uses: tauri-apps/tauri-action@v0
