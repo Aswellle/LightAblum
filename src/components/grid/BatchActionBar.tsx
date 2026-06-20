@@ -300,7 +300,7 @@ export const BatchActionBar = memo(function BatchActionBar({ allIds, totalCount 
           },
         },
       )
-      queryClient.invalidateQueries({ queryKey: ['photos'] })
+      queryClient.resetQueries({ queryKey: ['photos'] })
       // Fix: refresh sidebar stats after batch favorite toggle
       queryClient.invalidateQueries({ queryKey: ['stats'] })
     } catch {

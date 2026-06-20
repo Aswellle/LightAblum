@@ -188,13 +188,24 @@ export const PreviewToolbar = memo(function PreviewToolbar({ photoId }: PreviewT
   }, [resetHideTimer])
 
   // ── 收藏 Mutation ────────────────────────────────────
+  // AR-H3: onMutate = optimistic update; onError = rollback; onSettled = sync cache
   const favMutation = useMutation({
     mutationFn: (fav: boolean) => api.photos.setFavorite(photoId, fav),
-    onSuccess: (_, fav) => {
-      queryClient.invalidateQueries({ queryKey: ['photos'] })
+    onMutate: (fav) => {
+      const prev = usePhotoStore.getState().photos.find((p) => p.id === photoId)?.isFavorite
       usePhotoStore.getState().updatePhoto(photoId, { isFavorite: fav })
+      return { prev }
     },
-    onError: () => toast.error('操作失败'),
+    onError: (_, __, context) => {
+      if (context?.prev !== undefined) {
+        usePhotoStore.getState().updatePhoto(photoId, { isFavorite: context.prev })
+      }
+      toast.error('操作失败')
+    },
+    onSettled: () => {
+      queryClient.resetQueries({ queryKey: ['photos'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    },
   })
 
   const isFavorite = currentPhoto?.isFavorite ?? false

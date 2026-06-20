@@ -266,7 +266,7 @@ export function AlbumList() {
 
   // ── Mutations ──
   const renameMut = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => api.albums.update(id, { name }),
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.albums.update({ id, name }),
     onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['albums'] }),
     onError:    () => toast.error('重命名失败'),
   })
@@ -279,7 +279,7 @@ export function AlbumList() {
 
   const reorderMut = useMutation({
     mutationFn: ({ id, sortOrder }: { id: string; sortOrder: number }) =>
-      api.albums.update(id, { sortOrder }),
+      api.albums.update({ id, sortOrder }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['albums'] }),
   })
 

@@ -127,7 +127,7 @@ export const CoverPicker = memo(function CoverPicker({
   // 选中后写入 cover_photo_id
   const { mutate: selectCover, isPending: isSelecting } = useMutation({
     mutationFn: (photoId: string) =>
-      api.albums.update(albumId, { coverPhotoId: photoId }),
+      api.albums.update({ id: albumId, coverPhotoId: photoId }),
     onSuccess: (updatedAlbum) => {
       // 直接更新缓存，避免 staleTime:Infinity 导致封面不刷新
       queryClient.setQueryData(['album', albumId], updatedAlbum)

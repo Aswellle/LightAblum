@@ -344,7 +344,7 @@ export const GridItem = memo(function GridItem({ photo, size, allIds }: GridItem
               selectedIds.forEach((id) => usePhotoStore.getState().updatePhoto(id, { isFavorite: true }))
               Promise.all(selectedIds.map((id) => api.photos.setFavorite(id, true)))
                 .then(() => {
-                  queryClient.invalidateQueries({ queryKey: ['photos'] })
+                  queryClient.resetQueries({ queryKey: ['photos'] })
                   // Fix: refresh sidebar counts after batch favorite
                   queryClient.invalidateQueries({ queryKey: ['stats'] })
                 })
@@ -401,7 +401,7 @@ export const GridItem = memo(function GridItem({ photo, size, allIds }: GridItem
               usePhotoStore.getState().updatePhoto(photo.id, { isFavorite: newFav })
               api.photos.setFavorite(photo.id, newFav)
                 .then(() => {
-                  queryClient.invalidateQueries({ queryKey: ['photos'] })
+                  queryClient.resetQueries({ queryKey: ['photos'] })
                   // Fix: refresh sidebar counts after favorite toggle
                   queryClient.invalidateQueries({ queryKey: ['stats'] })
                 })

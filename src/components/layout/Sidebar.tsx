@@ -380,7 +380,7 @@ export function Sidebar() {
 
   // ── 相册 Mutations ──
   const renameAlbum = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => api.albums.update(id, { name }),
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.albums.update({ id, name }),
     onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['albums'] }),
     onError:    () => toast.error('重命名失败'),
   })
