@@ -20,9 +20,11 @@
  *
  *   总复杂度：O(pageSize) + O(M log M) per append，M ≪ N。
  *
- * 相关联修复（F-17，见 usePhotoQuery.ts）：
- *   usePhotoQuery 改为总调用 setPhotos，移除 appendPhotos 调用；
- *   appendPhotos 保留供未来其他消费方使用，并已经过 O(N_page) 优化。
+ * 相关联修复（PERF-C1，见 usePhotoData.ts）：
+ *   usePhotoData 通过 prevPageCountRef 判断是否为新页：
+ *     - 第 1 页 / 缓存重置 → setPhotos（全量重建）
+ *     - 第 k+1 页 → appendPhotos(newPage.items)（增量）
+ *   appendPhotos 现已成为核心热路径，O(N_page) 优化在生产中持续生效。
  */
 
 import { create } from 'zustand'
@@ -34,10 +36,11 @@ import type { PhotoThumb, PhotoGroup } from '@/types/photo'
 //  从 groupPhotosByMonth 提炼为独立函数，供 setPhotos / appendPhotos 复用
 // ─────────────────────────────────────────────────────────
 
-/** 从 ISO 时间戳计算月份分组键 'YYYY-MM' */
+/** 从 ISO 时间戳计算月份分组键 'YYYY-MM'（UTC，避免时区漂移导致跨月） */
 function photoGroupKey(createdAt: string): string {
   const d = new Date(createdAt)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  // CQ-H3: use UTC methods — local timezone can shift a UTC midnight into the previous month
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 /** 从分组键生成展示标签 '2025年3月' */
@@ -45,6 +48,16 @@ function buildGroupLabel(key: string): string {
   const [year, month] = key.split('-')
   const d = new Date(Number(year), Number(month) - 1)
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
+}
+
+/**
+ * Build an O(1) id→array-index lookup for the flat photos array.
+ * Kept in sync by all mutating operations so updatePhoto can skip the O(N) scan.
+ */
+function buildPhotoIndex(photos: PhotoThumb[]): Map<string, number> {
+  const index = new Map<string, number>()
+  photos.forEach((p, i) => index.set(p.id, i))
+  return index
 }
 
 /**
@@ -101,6 +114,8 @@ interface PhotoStore {
   // ── 内部状态（不对外暴露，供增量合并使用）──
   /** groupMap 是 groups 的索引形式，避免每次 append 时重建 Map */
   _groupMap: Map<string, PhotoGroup>
+  /** PERF-H2: id → photos[] index for O(1) updatePhoto lookup */
+  _photoIndex: Map<string, number>
 
   // ── 写操作 ──
 
@@ -140,14 +155,17 @@ export const usePhotoStore = create<PhotoStore>()(
     total:          0,
     isFetchingMore: false,
     _groupMap:      new Map(),
+    _photoIndex:    new Map(),
 
     // ── setPhotos：全量重建（O(N)，视图切换 / 筛选变更时调用）──
     setPhotos: (photos, total) => {
-      const groupMap = buildGroupMap(photos)
+      const groupMap   = buildGroupMap(photos)
+      const photoIndex = buildPhotoIndex(photos)
       set({
         photos,
-        _groupMap: groupMap,
-        groups:    groupMapToSortedArray(groupMap),
+        _groupMap:   groupMap,
+        _photoIndex: photoIndex,
+        groups:      groupMapToSortedArray(groupMap),
         total,
       })
     },
@@ -193,30 +211,42 @@ export const usePhotoStore = create<PhotoStore>()(
           ? groupMapToSortedArray(groupMap)
           : s.groups.map((g) => groupMap.get(g.key) ?? g)
 
-        return { photos, _groupMap: groupMap, groups }
+        // 5. PERF-H2: extend _photoIndex for appended photos (O(pageSize))
+        const photoIndex = new Map(s._photoIndex)
+        const baseOffset = s.photos.length
+        newPhotos.forEach((p, i) => photoIndex.set(p.id, baseOffset + i))
+
+        return { photos, _groupMap: groupMap, _photoIndex: photoIndex, groups }
       })
     },
 
     // ── updatePhoto：局部字段更新，不影响分组结构 ──
+    // PERF-H2: O(1) lookup via _photoIndex avoids the O(N) .map() scan
     updatePhoto: (id, patch) => {
-      set((s) => ({
-        photos: s.photos.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-        // 收藏/评分变化不影响分组键，_groupMap 和 groups 保持不变
-      }))
+      set((s) => {
+        const idx = s._photoIndex.get(id)
+        if (idx === undefined) return s // not in current view — no-op
+        const photos = [...s.photos]
+        photos[idx] = { ...photos[idx], ...patch }
+        return { photos }
+        // 收藏/评分变化不影响分组键，_groupMap / groups / _photoIndex 保持不变
+      })
     },
 
     // ── removePhotos：从列表和分组中移除，增量更新 ──
     removePhotos: (ids) => {
       const idSet = new Set(ids)
       set((s) => {
-        const photos   = s.photos.filter((p) => !idSet.has(p.id))
-        // 重建 groupMap（移除涉及多个 group，全量重建比逐项删除更简单）
-        const groupMap = buildGroupMap(photos)
+        const photos     = s.photos.filter((p) => !idSet.has(p.id))
+        // 重建 groupMap 和 _photoIndex（移除涉及多个 group，全量重建比逐项删除更简单）
+        const groupMap   = buildGroupMap(photos)
+        const photoIndex = buildPhotoIndex(photos)
         return {
           photos,
-          _groupMap: groupMap,
-          groups:    groupMapToSortedArray(groupMap),
-          total:     Math.max(0, s.total - ids.length),
+          _groupMap:   groupMap,
+          _photoIndex: photoIndex,
+          groups:      groupMapToSortedArray(groupMap),
+          total:       Math.max(0, s.total - ids.length),
         }
       })
     },
@@ -227,6 +257,7 @@ export const usePhotoStore = create<PhotoStore>()(
       photos:         [],
       groups:         [],
       _groupMap:      new Map(),
+      _photoIndex:    new Map(),
       total:          0,
       isFetchingMore: false,
     }),
