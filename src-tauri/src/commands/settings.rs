@@ -16,6 +16,7 @@ use tauri::State;
 //  settings_get（不变）
 // ─────────────────────────────────────────────────────────
 
+/// Return the current application settings loaded from disk (or defaults if no settings file exists).
 #[tauri::command]
 pub async fn settings_get(state: State<'_, AppState>) -> Result<AppSettings, AppError> {
     Ok(state.load_settings())
@@ -25,6 +26,9 @@ pub async fn settings_get(state: State<'_, AppState>) -> Result<AppSettings, App
 //  settings_update（不变）
 // ─────────────────────────────────────────────────────────
 
+/// Patch application settings. Only recognized fields in the JSON object are applied;
+/// unknown keys are silently ignored. Returns the full updated settings.
+/// Validated ranges: `gridDensity` 1–4, `sidebarWidth` 160–320.
 #[tauri::command]
 pub async fn settings_update(
     settings: serde_json::Value,

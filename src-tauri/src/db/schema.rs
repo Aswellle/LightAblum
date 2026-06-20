@@ -38,6 +38,10 @@ use crate::error::Result;
 use rusqlite::Connection;
 use std::path::Path;
 
+/// 当前最新 schema 版本号。迁移备份逻辑使用此常量判断是否需要备份，
+/// 新增迁移版本时只需更新此处，无需修改 run_migrations 中的判断条件。
+const LATEST_VERSION: i32 = 5;
+
 /// 应用启动时调用，确保数据库 Schema 是最新状态
 ///
 /// Phase-A：新增 `db_path` 参数，用于在迁移前创建备份文件。
@@ -54,10 +58,10 @@ pub fn run_migrations(conn: &Connection, db_path: &Path) -> Result<()> {
 
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
 
-    // Phase-A：当且仅当需要迁移时（version < 3 且数据库文件已存在）执行备份
+    // Phase-A：当且仅当需要迁移时（version < LATEST_VERSION 且数据库文件已存在）执行备份
     // version == 0 + 文件不存在 = 全新数据库，无需备份
     // version > 0 + 需迁移     = 备份当前版本，防止迁移故障导致数据丢失
-    if version > 0 && version < 5 {
+    if version > 0 && version < LATEST_VERSION {
         let bak_path = db_path.with_extension(format!("db.bak.{version}"));
         match std::fs::copy(db_path, &bak_path) {
             Ok(_) => tracing::info!(
@@ -386,28 +390,48 @@ fn apply_v5_search_text(conn: &Connection) -> Result<()> {
         conn.execute_batch("ALTER TABLE photos ADD COLUMN search_text TEXT;")?;
 
         // 2. 存量照片补填（仅在首次创建列时执行，之后触发器负责维护）
-        conn.execute_batch(
-            "UPDATE photos SET search_text =              COALESCE(file_name, '') || ' ' ||              COALESCE(camera_model, '') || ' ' ||              COALESCE(camera_make, '');"
-        )?;
+        conn.execute_batch(r#"
+            UPDATE photos SET search_text =
+                COALESCE(file_name, '') || ' ' ||
+                COALESCE(camera_model, '') || ' ' ||
+                COALESCE(camera_make, '');
+        "#)?;
         tracing::debug!("Backfilled search_text for existing photos");
     } else {
         tracing::debug!("Column photos.search_text already exists, skipping ADD COLUMN");
     }
 
     // 3. 索引（幂等 — IF NOT EXISTS）
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_photos_search_text          ON photos(search_text COLLATE NOCASE);"
-    )?;
+    conn.execute_batch(r#"
+        CREATE INDEX IF NOT EXISTS idx_photos_search_text
+            ON photos(search_text COLLATE NOCASE);
+    "#)?;
 
     // 4. INSERT 触发器（幂等）
-    conn.execute_batch(
-        "CREATE TRIGGER IF NOT EXISTS trg_search_text_insert          AFTER INSERT ON photos          BEGIN            UPDATE photos SET search_text =              COALESCE(NEW.file_name, '') || ' ' ||              COALESCE(NEW.camera_model, '') || ' ' ||              COALESCE(NEW.camera_make, '')            WHERE id = NEW.id;          END;"
-    )?;
+    conn.execute_batch(r#"
+        CREATE TRIGGER IF NOT EXISTS trg_search_text_insert
+        AFTER INSERT ON photos
+        BEGIN
+            UPDATE photos SET search_text =
+                COALESCE(NEW.file_name, '') || ' ' ||
+                COALESCE(NEW.camera_model, '') || ' ' ||
+                COALESCE(NEW.camera_make, '')
+            WHERE id = NEW.id;
+        END;
+    "#)?;
 
     // 5. UPDATE 触发器（仅在影响字段变更时触发，避免无谓写入）
-    conn.execute_batch(
-        "CREATE TRIGGER IF NOT EXISTS trg_search_text_update          AFTER UPDATE OF file_name, camera_make, camera_model ON photos          BEGIN            UPDATE photos SET search_text =              COALESCE(NEW.file_name, '') || ' ' ||              COALESCE(NEW.camera_model, '') || ' ' ||              COALESCE(NEW.camera_make, '')            WHERE id = NEW.id;          END;"
-    )?;
+    conn.execute_batch(r#"
+        CREATE TRIGGER IF NOT EXISTS trg_search_text_update
+        AFTER UPDATE OF file_name, camera_make, camera_model ON photos
+        BEGIN
+            UPDATE photos SET search_text =
+                COALESCE(NEW.file_name, '') || ' ' ||
+                COALESCE(NEW.camera_model, '') || ' ' ||
+                COALESCE(NEW.camera_make, '')
+            WHERE id = NEW.id;
+        END;
+    "#)?;
 
     tracing::info!("V5 search_text migration complete");
     Ok(())

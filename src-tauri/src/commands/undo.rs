@@ -3,12 +3,17 @@ use crate::error::AppError;
 use crate::state::AppState;
 use tauri::State;
 
+/// Pop the most recent undo entry and replay it in reverse.
+///
+/// Supported actions: `photo_delete`, `favorite_set`, `favorite_batch`, `album_photos_add`.
+/// Returns `{ undoId, action, reversed, detail }` on success.
+/// Returns `UNDO_EMPTY` if the undo log is empty.
 #[tauri::command]
 pub async fn undo_last(state: State<'_, AppState>) -> Result<serde_json::Value, AppError> {
     let entry = state
         .undo
         .pop_last()?
-        .ok_or_else(|| AppError::Other("UNDO_EMPTY".into()))?;
+        .ok_or_else(|| AppError::UndoEmpty)?;
 
     let reversed = apply_undo(&state, &entry.action, &entry.payload).await?;
     Ok(serde_json::json!({

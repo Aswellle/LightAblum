@@ -57,6 +57,12 @@ pub enum AppError {
     #[error("Invalid argument: {0}")]
     InvalidArgument(String),
 
+    #[error("Scan already in progress")]
+    ScanInProgress,
+
+    #[error("Nothing to undo")]
+    UndoEmpty,
+
     #[error("{0}")]
     Other(String),
 }
@@ -123,6 +129,10 @@ impl serde::Serialize for AppError {
                 };
                 (code, msg.clone(), None)
             }
+            AppError::ScanInProgress => {
+                ("SCAN_IN_PROGRESS", "Scan already in progress".into(), None)
+            }
+            AppError::UndoEmpty => ("UNDO_EMPTY", "Nothing to undo".into(), None),
             AppError::Other(msg) => {
                 // 命令层已将业务码字符串放入 Other：
                 //   AppError::Other("SCAN_IN_PROGRESS".into())

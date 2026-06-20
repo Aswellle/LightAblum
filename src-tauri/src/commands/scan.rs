@@ -83,6 +83,15 @@ pub struct WatchedFolder {
 //  import_scan
 // ─────────────────────────────────────────────────────────
 
+/// Scan a folder recursively, indexing new and updated photos into the library.
+///
+/// Registers `path` in `watched_folders` if not already present, then spawns a
+/// background scan thread. Returns an initial `ScanProgress` immediately; the
+/// actual scan emits `scan:started`, `scan:progress`, `scan:completed`, and
+/// `library:changed` events asynchronously.
+///
+/// Errors: `SCAN_IN_PROGRESS` if another scan is active; `INVALID_PARAMS` if
+/// `path` does not exist or is not a directory.
 #[tauri::command]
 pub async fn import_scan(
     path: String,
@@ -104,7 +113,7 @@ pub async fn import_scan(
     {
         let status = state.scan_status.lock().unwrap();
         if status.is_scanning {
-            return Err(AppError::Other("SCAN_IN_PROGRESS".into()));
+            return Err(AppError::ScanInProgress);
         }
     }
 
@@ -519,6 +528,10 @@ fn run_scan(
 //  import_scan_status / folders_list / folders_remove
 // ─────────────────────────────────────────────────────────
 
+/// Return current scan status (whether a scan is in progress).
+///
+/// Returns `{ isScanning: bool, progress: null }`. Poll from the frontend if
+/// real-time progress is not needed; prefer `scan:progress` events otherwise.
 #[tauri::command]
 pub async fn import_scan_status(state: State<'_, AppState>) -> Result<serde_json::Value, AppError> {
     let status = state.scan_status.lock().unwrap();
@@ -528,6 +541,9 @@ pub async fn import_scan_status(state: State<'_, AppState>) -> Result<serde_json
     }))
 }
 
+/// List all watched folders ordered by `added_at` ascending.
+///
+/// Returns `[{ path, addedAt, lastScanAt, photoCount }]`.
 #[tauri::command]
 pub async fn folders_list(state: State<'_, AppState>) -> Result<Vec<WatchedFolder>, AppError> {
     let conn = state.conn()?;
@@ -555,6 +571,12 @@ pub async fn folders_list(state: State<'_, AppState>) -> Result<Vec<WatchedFolde
 // { path, deletePhotos }（扁平），导致 "missing required key params" 错误。
 // 改为直接接收 path: String 和 delete_photos: Option<bool>，
 // 前端无需任何修改（已经按此格式传参）。
+/// Remove a watched folder and optionally soft-delete its photos.
+///
+/// Unregisters the folder from the file watcher, deletes it from
+/// `watched_folders`, and — if `delete_photos` is `true` — sets
+/// `is_deleted = 1` for all photos in this folder.
+/// Emits `library:changed` with empty arrays on completion.
 #[tauri::command]
 pub async fn folders_remove(
     path: String,

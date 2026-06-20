@@ -31,6 +31,8 @@ pub trait PhotoRepository: Send + Sync {
     ) -> Result<()>;
     fn set_favorite(&self, id: &str, value: bool) -> Result<()>;
     fn set_favorite_batch(&self, ids: &[String], value: bool) -> Result<()>;
+    fn get_batch_favorites(&self, ids: &[String]) -> Result<std::collections::HashMap<String, bool>>;
+    fn set_rating(&self, id: &str, rating: i32) -> Result<()>;
     fn soft_delete(&self, ids: &[String]) -> Result<()>;
     fn restore(&self, ids: &[String]) -> Result<()>;
     fn purge(&self, ids: &[String]) -> Result<()>;
@@ -83,13 +85,34 @@ impl PhotoRepository for SqlitePhotoRepository {
     }
 
     fn get_batch(&self, ids: &[String]) -> Result<Vec<Photo>> {
-        let conn = self.conn()?;
-        let mut photos = Vec::with_capacity(ids.len());
-        for id in ids {
-            if let Some(p) = crate::db::photo::get_by_id(&conn, id)? {
-                photos.push(p);
-            }
+        if ids.is_empty() {
+            return Ok(vec![]);
         }
+        let conn = self.conn()?;
+        let placeholders: String = ids
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT id, file_path, file_name, file_size, file_hash, width, height, orientation, \
+             format, created_at, modified_at, imported_at, folder_path, \
+             gps_lat, gps_lng, camera_make, camera_model, lens_model, \
+             focal_length, aperture, shutter_speed, iso, exposure_comp, \
+             is_favorite, is_deleted, deleted_at, rating, \
+             thumbnail_s, thumbnail_m, thumbnail_l \
+             FROM photos WHERE id IN ({})",
+            placeholders
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::ToSql)
+            .collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let photos = stmt
+            .query_map(params.as_slice(), crate::db::photo::row_to_photo)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(photos)
     }
 
@@ -112,6 +135,49 @@ impl PhotoRepository for SqlitePhotoRepository {
     fn set_favorite_batch(&self, ids: &[String], value: bool) -> Result<()> {
         let conn = self.conn()?;
         crate::db::photo::set_favorite_batch(&conn, ids, value)
+    }
+
+    fn get_batch_favorites(
+        &self,
+        ids: &[String],
+    ) -> Result<std::collections::HashMap<String, bool>> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let conn = self.conn()?;
+        let placeholders: String = ids
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT id, is_favorite FROM photos WHERE id IN ({})",
+            placeholders
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::ToSql)
+            .collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let map = stmt
+            .query_map(params.as_slice(), |row| {
+                Ok((
+                    row.get::<_, String>("id")?,
+                    row.get::<_, i32>("is_favorite")? != 0,
+                ))
+            })?
+            .collect::<rusqlite::Result<std::collections::HashMap<_, _>>>()?;
+        Ok(map)
+    }
+
+    fn set_rating(&self, id: &str, rating: i32) -> Result<()> {
+        let conn = self.conn()?;
+        conn.execute(
+            "UPDATE photos SET rating = ?1 WHERE id = ?2",
+            rusqlite::params![rating, id],
+        )?;
+        Ok(())
     }
 
     fn soft_delete(&self, ids: &[String]) -> Result<()> {
