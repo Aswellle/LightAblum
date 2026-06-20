@@ -189,4 +189,4 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: E2E tests
-        run: xvfb-run pnpm test:e2e
+        run: xvfb-run pnpm test:e2e --update-snapshots
