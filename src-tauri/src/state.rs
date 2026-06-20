@@ -113,8 +113,7 @@ pub struct AppState {
     pub watcher: Mutex<Option<FsWatcher>>,
 
     /// SEC-C1：私密相册 PIN 暴力破解保护 — album_id → 失败记录
-    pub(crate) failed_attempts:
-        Arc<Mutex<std::collections::HashMap<String, FailedAttempts>>>,
+    pub(crate) failed_attempts: Arc<Mutex<std::collections::HashMap<String, FailedAttempts>>>,
 
     /// SEC-H3: HMAC-SHA256 secret — generated once at startup, tokens invalidated on restart
     pub(crate) hmac_secret: Arc<Vec<u8>>,

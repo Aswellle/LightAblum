@@ -10,10 +10,7 @@ use tauri::State;
 /// Returns `UNDO_EMPTY` if the undo log is empty.
 #[tauri::command]
 pub async fn undo_last(state: State<'_, AppState>) -> Result<serde_json::Value, AppError> {
-    let entry = state
-        .undo
-        .pop_last()?
-        .ok_or_else(|| AppError::UndoEmpty)?;
+    let entry = state.undo.pop_last()?.ok_or_else(|| AppError::UndoEmpty)?;
 
     let reversed = apply_undo(&state, &entry.action, &entry.payload).await?;
     Ok(serde_json::json!({

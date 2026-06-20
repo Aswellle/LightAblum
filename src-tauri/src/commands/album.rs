@@ -182,14 +182,15 @@ pub async fn album_verify_password(
             let mut attempts = state.failed_attempts.lock().unwrap();
             if ok {
                 attempts.remove(&id); // 成功后清除失败记录
-                // SEC-H3: issue a time-limited HMAC session token bound to this album
+                                      // SEC-H3: issue a time-limited HMAC session token bound to this album
                 let token = crate::auth::session::generate_token(&state.hmac_secret, &id);
                 Ok(Some(token))
             } else {
                 // 记录失败并按指数退避计算锁定时间
-                let entry = attempts
-                    .entry(id)
-                    .or_insert(FailedAttempts { count: 0, locked_until: None });
+                let entry = attempts.entry(id).or_insert(FailedAttempts {
+                    count: 0,
+                    locked_until: None,
+                });
                 entry.count += 1;
                 if entry.count >= BACKOFF_THRESHOLD {
                     let delay_secs =
@@ -215,7 +216,11 @@ pub async fn album_check_token(
     token: String,
     state: State<'_, AppState>,
 ) -> Result<bool, AppError> {
-    Ok(crate::auth::session::verify_token(&state.hmac_secret, &token, &id))
+    Ok(crate::auth::session::verify_token(
+        &state.hmac_secret,
+        &token,
+        &id,
+    ))
 }
 
 /// Patch album metadata. All fields are optional; only supplied fields are changed.

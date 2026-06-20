@@ -390,25 +390,30 @@ fn apply_v5_search_text(conn: &Connection) -> Result<()> {
         conn.execute_batch("ALTER TABLE photos ADD COLUMN search_text TEXT;")?;
 
         // 2. 存量照片补填（仅在首次创建列时执行，之后触发器负责维护）
-        conn.execute_batch(r#"
+        conn.execute_batch(
+            r#"
             UPDATE photos SET search_text =
                 COALESCE(file_name, '') || ' ' ||
                 COALESCE(camera_model, '') || ' ' ||
                 COALESCE(camera_make, '');
-        "#)?;
+        "#,
+        )?;
         tracing::debug!("Backfilled search_text for existing photos");
     } else {
         tracing::debug!("Column photos.search_text already exists, skipping ADD COLUMN");
     }
 
     // 3. 索引（幂等 — IF NOT EXISTS）
-    conn.execute_batch(r#"
+    conn.execute_batch(
+        r#"
         CREATE INDEX IF NOT EXISTS idx_photos_search_text
             ON photos(search_text COLLATE NOCASE);
-    "#)?;
+    "#,
+    )?;
 
     // 4. INSERT 触发器（幂等）
-    conn.execute_batch(r#"
+    conn.execute_batch(
+        r#"
         CREATE TRIGGER IF NOT EXISTS trg_search_text_insert
         AFTER INSERT ON photos
         BEGIN
@@ -418,10 +423,12 @@ fn apply_v5_search_text(conn: &Connection) -> Result<()> {
                 COALESCE(NEW.camera_make, '')
             WHERE id = NEW.id;
         END;
-    "#)?;
+    "#,
+    )?;
 
     // 5. UPDATE 触发器（仅在影响字段变更时触发，避免无谓写入）
-    conn.execute_batch(r#"
+    conn.execute_batch(
+        r#"
         CREATE TRIGGER IF NOT EXISTS trg_search_text_update
         AFTER UPDATE OF file_name, camera_make, camera_model ON photos
         BEGIN
@@ -431,7 +438,8 @@ fn apply_v5_search_text(conn: &Connection) -> Result<()> {
                 COALESCE(NEW.camera_make, '')
             WHERE id = NEW.id;
         END;
-    "#)?;
+    "#,
+    )?;
 
     tracing::info!("V5 search_text migration complete");
     Ok(())

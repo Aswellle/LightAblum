@@ -77,8 +77,7 @@ pub fn verify_token(secret: &[u8], token: &str, expected_album_id: &str) -> bool
 }
 
 fn compute_hmac(secret: &[u8], data: &[u8]) -> Vec<u8> {
-    let mut mac = HmacSha256::new_from_slice(secret)
-        .expect("HMAC accepts keys of any size");
+    let mut mac = HmacSha256::new_from_slice(secret).expect("HMAC accepts keys of any size");
     mac.update(data);
     mac.finalize().into_bytes().to_vec()
 }
@@ -88,7 +87,10 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    a.iter()
+        .zip(b.iter())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 fn unix_now() -> u64 {
