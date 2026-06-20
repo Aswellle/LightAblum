@@ -38,6 +38,10 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Install sidecar dependencies
+        run: npm ci
+        working-directory: sidecar
+
       - name: Sidecar smoke test  # CD-M2
         run: node test/smoke.js
         working-directory: sidecar
