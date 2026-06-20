@@ -30,3 +30,6 @@ package-lock.json
 CLAUDE.md
 开发日志/
 docs/superpowers/
+.full-review/
+.omc/
+src-tauri/.omc/
