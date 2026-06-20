@@ -236,7 +236,7 @@ function usePinInput(
 interface PasswordLockScreenProps {
   albumId:   string
   albumName: string
-  onUnlock:  () => void
+  onUnlock:  (token: string) => void  // SEC-H3: carries HMAC token on success
   onBack:    () => void
 }
 
@@ -275,9 +275,10 @@ export const PasswordLockScreen = memo(function PasswordLockScreen({
     if (verifying || cooldown > 0) return
     setVerifying(true)
     try {
-      const ok = await api.albums.verifyPassword(albumId, pin)
-      if (ok) {
-        onUnlock()
+      // SEC-H3: verifyPassword now returns an HMAC token string on success, null on failure
+      const token = await api.albums.verifyPassword(albumId, pin)
+      if (token) {
+        onUnlock(token)
       } else {
         const newAttempts = attempts + 1
         setAttempts(newAttempts)
@@ -436,6 +437,8 @@ interface PrivateAlbumViewProps {
 export function PrivateAlbumView({ albumId, albumName, hasPassword }: PrivateAlbumViewProps) {
   const queryClient                     = useQueryClient()
   const [unlocked, setUnlocked]        = useState(!hasPassword)
+  // SEC-H3: hold the HMAC token obtained from album_verify_password
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
   const setView                         = useUiStore((s) => s.setView)
   const currentView                     = useUiStore(selectCurrentView)
   // Fix: sync unlock state so StatusBar knows whether to show photo count
@@ -457,13 +460,20 @@ export function PrivateAlbumView({ albumId, albumName, hasPassword }: PrivateAlb
     [removeFromPrivateAlbumMutation],
   )
 
+  // SEC-H3: re-lock when backend rejects the session token (called from usePhotoData)
+  const handleTokenExpired = useCallback(() => {
+    setSessionToken(null)
+    setUnlocked(false)
+    setPrivateAlbumUnlocked(false)
+  }, [setPrivateAlbumUnlocked])
+
   // 离开该相册时立即上锁：只要当前视图不再是本相册，重置 unlocked 为 false
   // 修复：解锁 A 相册后导航到其他视图（或其他私密相册），再回来需重新验证
   useEffect(() => {
     const isHere = currentView.type === 'album' && currentView.albumId === albumId
     if (!isHere) {
       setUnlocked(false)
-      // Fix: lock the uiStore flag too so StatusBar hides count
+      setSessionToken(null)  // SEC-H3: discard token when leaving the album
       setPrivateAlbumUnlocked(false)
     }
   }, [currentView, albumId, setPrivateAlbumUnlocked])
@@ -477,9 +487,9 @@ export function PrivateAlbumView({ albumId, albumName, hasPassword }: PrivateAlb
     return (
       <PasswordLockScreen
         albumId={albumId} albumName={albumName}
-        onUnlock={() => {
+        onUnlock={(token) => {
+          setSessionToken(token)  // SEC-H3: store HMAC token
           setUnlocked(true)
-          // Fix: notify uiStore so StatusBar can show count
           setPrivateAlbumUnlocked(true)
         }}
         onBack={() => setView({ type: 'all_photos' })}
@@ -491,6 +501,8 @@ export function PrivateAlbumView({ albumId, albumName, hasPassword }: PrivateAlb
       albumId,
       isPrivateAlbum:  true,
       removeFromAlbum: handleRemoveFromPrivate,
+      sessionToken,                       // SEC-H3: forwarded into usePhotoQuery filter
+      onTokenExpired:  handleTokenExpired, // SEC-H3: re-lock when backend rejects token
     }}>
       <PhotoGrid />
     </AlbumContext.Provider>

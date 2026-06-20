@@ -44,6 +44,15 @@ pub type DbPool = r2d2::Pool<SqliteConnectionManager>;
 pub type DbConn = r2d2::PooledConnection<SqliteConnectionManager>;
 
 // ─────────────────────────────────────────────────────────
+//  PIN 暴力破解保护状态（SEC-C1）
+// ─────────────────────────────────────────────────────────
+
+pub struct FailedAttempts {
+    pub count: u32,
+    pub locked_until: Option<std::time::Instant>,
+}
+
+// ─────────────────────────────────────────────────────────
 //  per-connection PRAGMA 初始化器
 // ─────────────────────────────────────────────────────────
 
@@ -70,7 +79,7 @@ impl r2d2::CustomizeConnection<rusqlite::Connection, rusqlite::Error> for ConnCu
 
 pub struct AppState {
     /// SQLite 连接池（Round-4 F-01）
-    pub db: DbPool,
+    pub(crate) db: DbPool,
 
     /// 照片仓库
     pub photos: Arc<dyn PhotoRepository>,
@@ -102,6 +111,13 @@ pub struct AppState {
     /// 文件系统监听器（Round-5 F-03：原死代码，现接入）
     /// Mutex 保护，供 import_scan / folders_remove 命令动态注册/注销路径
     pub watcher: Mutex<Option<FsWatcher>>,
+
+    /// SEC-C1：私密相册 PIN 暴力破解保护 — album_id → 失败记录
+    pub(crate) failed_attempts:
+        Arc<Mutex<std::collections::HashMap<String, FailedAttempts>>>,
+
+    /// SEC-H3: HMAC-SHA256 secret — generated once at startup, tokens invalidated on restart
+    pub(crate) hmac_secret: Arc<Vec<u8>>,
 }
 
 impl AppState {
@@ -137,6 +153,16 @@ impl AppState {
         let cache = cache::new_shared(thumb_dir.clone(), cache::DEFAULT_MAX_BYTES);
         let sidecar = Arc::new(Mutex::new(SidecarHandle::new(data_dir.clone())));
 
+        // SEC-H3: generate 32-byte HMAC secret from two random UUIDs (UUID v4 is OS-backed CSPRNG)
+        let hmac_secret = {
+            let u1 = uuid::Uuid::new_v4();
+            let u2 = uuid::Uuid::new_v4();
+            let mut s = Vec::with_capacity(32);
+            s.extend_from_slice(u1.as_bytes());
+            s.extend_from_slice(u2.as_bytes());
+            Arc::new(s)
+        };
+
         Ok(Self {
             db: pool,
             photos,
@@ -150,6 +176,8 @@ impl AppState {
             cache,
             sidecar,
             watcher: Mutex::new(None),
+            failed_attempts: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            hmac_secret,
         })
     }
 

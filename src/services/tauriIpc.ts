@@ -14,6 +14,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import type {
   IpcCommands,
+  AlbumUpdateParams,
   PhotoFilter,
   SearchQuery,
   ThumbSize,
@@ -26,6 +27,13 @@ import { locale } from '@/locales'
 
 const DEV = import.meta.env.DEV
 
+// SEC-H1: commands whose args contain a password/PIN — redact before logging
+const SENSITIVE_IPC_COMMANDS = new Set<string>([
+  'album_create_private',
+  'album_set_private',
+  'album_verify_password',
+])
+
 export async function ipc<K extends keyof IpcCommands>(
   command: K,
   args?: Parameters<IpcCommands[K]>[0],
@@ -33,7 +41,13 @@ export async function ipc<K extends keyof IpcCommands>(
 ): Promise<Awaited<ReturnType<IpcCommands[K]>>> {
   const { silent = false, errorMessage } = options
 
-  if (DEV) console.debug(`[IPC →] ${command}`, args ?? '(no args)')
+  if (DEV) {
+    const loggableArgs =
+      args != null && SENSITIVE_IPC_COMMANDS.has(command)
+        ? { ...(args as Record<string, unknown>), password: '[REDACTED]' }
+        : args
+    console.debug(`[IPC →] ${command}`, loggableArgs ?? '(no args)')
+  }
 
   try {
     const result = await invoke<Awaited<ReturnType<IpcCommands[K]>>>(
@@ -73,8 +87,9 @@ function parseIpcError(raw: unknown, command: string): import('@/types/ipc').Ipc
 }
 
 function buildUserMessage(err: import('@/types/ipc').IpcError): string {
-  const key = err.code as keyof typeof locale.errors
-  return (locale.errors[key] as string | undefined) ?? err.message ?? locale.errors.UNKNOWN
+  // CQ-M4: single cast on the map avoids the double-as pattern
+  const errorsMap = locale.errors as Record<string, string | undefined>
+  return errorsMap[err.code] ?? err.message ?? locale.errors.UNKNOWN
 }
 
 export const api = {
@@ -128,8 +143,8 @@ export const api = {
     listAll: () => ipc('albums_list_all'),
     get:     (id: string) => ipc('albums_get', { id }),
     create:  (name: string, description?: string) => ipc('albums_create', { name, description }),
-    update:  (id: string, params: Record<string, unknown>) =>
-      ipc('albums_update', { id, ...params }),
+    update:  (params: AlbumUpdateParams) =>
+      ipc('albums_update', params),
     delete:       (id: string) => ipc('albums_delete', { id }),
     photos:       (albumId: string, cursor?: string, limit = 100) => ipc('album_photos_list', { albumId, cursor, limit }),
     addPhotos:    (albumId: string, photoIds: string[]) => ipc('album_photos_add', { albumId, photoIds }),
@@ -141,9 +156,12 @@ export const api = {
     /** v2 新增：设置/取消私密状态 */
     setPrivate:      (id: string, isPrivate: boolean, password?: string) =>
       ipc('album_set_private', { id, isPrivate, password }),
-    /** v2 新增：验证密码（true=正确）*/
+    /** v2 新增；SEC-H3：成功返回 HMAC token，失败返回 null */
     verifyPassword:  (id: string, password: string) =>
       ipc('album_verify_password', { id, password }, { silent: true }),
+    /** SEC-H3 新增：检查已有 token 是否仍有效 */
+    checkToken:      (id: string, token: string) =>
+      ipc('album_check_token', { id, token }, { silent: true }),
   },
 
   /** Phase-B M-12：标签系统 */

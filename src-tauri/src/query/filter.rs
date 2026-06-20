@@ -41,4 +41,8 @@ pub struct PhotoFilter {
     /// 排序方向：false = 倒序（新→旧，默认），true = 正序（旧→新）
     #[serde(default)]
     pub sort_asc: bool,
+
+    /// SEC-H3: HMAC session token — required when album_id is a private album.
+    /// Validated by photos_list before querying; missing/invalid token → TOKEN_REQUIRED error.
+    pub session_token: Option<String>,
 }

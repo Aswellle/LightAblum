@@ -18,17 +18,23 @@ use crate::db::album::{
 };
 use crate::db::photo::PhotoPage;
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::{AppState, FailedAttempts};
 use tauri::State;
 
 /// bcrypt work factor — 10 在现代桌面 CPU 上约 100ms，安全性与响应速度的合理折中。
 /// 不得低于 10，OWASP 建议桌面应用使用 10-12。
 const BCRYPT_COST: u32 = 10;
+/// SEC-C1: 开始指数退避的失败次数阈值（3 次后开始锁定）
+const BACKOFF_THRESHOLD: u32 = 3;
+/// SEC-C1: 最长锁定时间（5 分钟）
+const MAX_LOCKOUT_SECS: u64 = 300;
 
 // ─────────────────────────────────────────────────────────
 //  查询
 // ─────────────────────────────────────────────────────────
 
+/// List non-private albums as summaries for the sidebar. Private albums are excluded
+/// entirely to avoid leaking their existence to unauthenticated viewers.
 #[tauri::command]
 pub async fn albums_list(state: State<'_, AppState>) -> Result<Vec<AlbumSummary>, AppError> {
     // 侧边栏：排除私密相册，避免泄漏存在
@@ -38,9 +44,17 @@ pub async fn albums_list(state: State<'_, AppState>) -> Result<Vec<AlbumSummary>
 /// 列出所有相册含私密（管理/私密相册入口用）
 #[tauri::command]
 pub async fn albums_list_all(state: State<'_, AppState>) -> Result<Vec<AlbumSummary>, AppError> {
-    state.albums.list_all_summaries()
+    let mut summaries = state.albums.list_all_summaries()?;
+    // SEC-C2: 私密相册的封面缩略图在验证前不应暴露，避免通过封面推断内容
+    for s in summaries.iter_mut() {
+        if s.is_private {
+            s.cover_thumbnail = None;
+        }
+    }
+    Ok(summaries)
 }
 
+/// Fetch a single album's full record by ID. Returns `ALBUM_NOT_FOUND` if absent.
 #[tauri::command]
 pub async fn albums_get(id: String, state: State<'_, AppState>) -> Result<Album, AppError> {
     state
@@ -53,12 +67,27 @@ pub async fn albums_get(id: String, state: State<'_, AppState>) -> Result<Album,
 //  写操作
 // ─────────────────────────────────────────────────────────
 
+/// Create a public album. `name` must be 1–100 characters; `description` at most 500.
+/// Returns `INVALID_PARAMS` on length violations.
 #[tauri::command]
 pub async fn albums_create(
     name: String,
     description: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Album, AppError> {
+    // SEC-M3: 防止超长输入占用 DB 空间或导致 UI 渲染问题
+    if name.is_empty() || name.len() > 100 {
+        return Err(AppError::InvalidArgument(
+            "Album name must be 1–100 characters".into(), // LOC: album.create.name_length
+        ));
+    }
+    if let Some(ref d) = description {
+        if d.len() > 500 {
+            return Err(AppError::InvalidArgument(
+                "Description must be at most 500 characters".into(), // LOC: album.create.desc_length
+            ));
+        }
+    }
     state.albums.create(&name, description.as_deref())
 }
 
@@ -69,11 +98,16 @@ pub async fn album_create_private(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<Album, AppError> {
-    if password.len() != 6 || !password.chars().all(|c| c.is_ascii_digit()) {
-        return Err(AppError::InvalidArgument("密码必须为6位数字".into()));
+    // SEC-H2: 弃用仅6位数字PIN，改为至少8位字母数字混合
+    if password.len() < 8 || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(AppError::InvalidArgument(
+            "密码至少需要8位字母或数字".into(), // LOC: album.password.requirement
+        ));
     }
-    // bcrypt hash（cost=10，安全且在桌面上速度可接受）
-    let hash = bcrypt::hash(&password, BCRYPT_COST)
+    // PERF-M3: bcrypt 是 CPU 密集型操作，在独立线程运行以避免阻塞 Tokio 事件循环
+    let hash = tokio::task::spawn_blocking(move || bcrypt::hash(&password, BCRYPT_COST))
+        .await
+        .map_err(|e| AppError::Other(format!("Task join error: {e}")))?
         .map_err(|e| AppError::Other(format!("Password hash failed: {e}")))?;
     state.albums.create_private(&name, &hash)
 }
@@ -89,11 +123,17 @@ pub async fn album_set_private(
 ) -> Result<Album, AppError> {
     let password_hash = if is_private {
         match password {
-            Some(ref pw) => {
-                if pw.len() != 6 || !pw.chars().all(|c| c.is_ascii_digit()) {
-                    return Err(AppError::InvalidArgument("密码必须为6位数字".into()));
+            Some(pw) => {
+                // SEC-H2: 8+ 位字母数字混合密码
+                if pw.len() < 8 || !pw.chars().all(|c| c.is_ascii_alphanumeric()) {
+                    return Err(AppError::InvalidArgument(
+                        "密码至少需要8位字母或数字".into(), // LOC: album.password.requirement
+                    ));
                 }
-                let hash = bcrypt::hash(pw, BCRYPT_COST)
+                // PERF-M3: bcrypt 在独立线程运行
+                let hash = tokio::task::spawn_blocking(move || bcrypt::hash(&pw, BCRYPT_COST))
+                    .await
+                    .map_err(|e| AppError::Other(format!("Task join error: {e}")))?
                     .map_err(|e| AppError::Other(format!("Hash failed: {e}")))?;
                 Some(hash)
             }
@@ -107,24 +147,79 @@ pub async fn album_set_private(
         .set_private(&id, is_private, password_hash.as_deref())
 }
 
-/// 验证私密相册密码
-/// 返回 true = 密码正确，false = 密码错误
+/// 验证私密相册密码，成功返回 HMAC 会话 token，失败返回 null。
+///
+/// SEC-C1: 内置暴力破解保护 — 连续失败 3 次后开始指数退避锁定（最长 5 分钟）
+/// SEC-H3: 返回的 token 是 HMAC-SHA256 签名、相册绑定、有效期 1 小时的会话凭证。
+///         前端必须将 token 附在后续 photos_list 调用的 session_token 字段中。
 #[tauri::command]
 pub async fn album_verify_password(
     id: String,
     password: String,
     state: State<'_, AppState>,
-) -> Result<bool, AppError> {
+) -> Result<Option<String>, AppError> {
+    // SEC-C1: 检查是否仍在锁定窗口内
+    {
+        let attempts = state.failed_attempts.lock().unwrap();
+        if let Some(entry) = attempts.get(&id) {
+            if let Some(until) = entry.locked_until {
+                if std::time::Instant::now() < until {
+                    return Err(AppError::Other("TOO_MANY_ATTEMPTS".into())); // LOC: album.verify.too_many_attempts
+                }
+            }
+        }
+    }
+
     match state.albums.get_password_hash(&id)? {
-        None => Ok(false), // 相册不存在或无密码
+        None => Ok(None), // 相册不存在或无密码
         Some(hash) => {
-            let ok = bcrypt::verify(&password, &hash)
+            // PERF-M3: bcrypt::verify 是 CPU 密集型操作，在独立线程运行
+            let ok = tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash))
+                .await
+                .map_err(|e| AppError::Other(format!("Task join error: {e}")))?
                 .map_err(|e| AppError::Other(format!("Verify failed: {e}")))?;
-            Ok(ok)
+
+            let mut attempts = state.failed_attempts.lock().unwrap();
+            if ok {
+                attempts.remove(&id); // 成功后清除失败记录
+                // SEC-H3: issue a time-limited HMAC session token bound to this album
+                let token = crate::auth::session::generate_token(&state.hmac_secret, &id);
+                Ok(Some(token))
+            } else {
+                // 记录失败并按指数退避计算锁定时间
+                let entry = attempts
+                    .entry(id)
+                    .or_insert(FailedAttempts { count: 0, locked_until: None });
+                entry.count += 1;
+                if entry.count >= BACKOFF_THRESHOLD {
+                    let delay_secs =
+                        (1u64 << (entry.count - BACKOFF_THRESHOLD)).min(MAX_LOCKOUT_SECS);
+                    entry.locked_until = Some(
+                        std::time::Instant::now() + std::time::Duration::from_secs(delay_secs),
+                    );
+                }
+                Ok(None)
+            }
         }
     }
 }
 
+/// Validate a previously issued HMAC session token for a private album.
+///
+/// Returns `true` if the token is valid, album-bound, and not yet expired.
+/// Useful for the frontend to check whether a stored token can still be used
+/// without prompting the user for the PIN again.
+#[tauri::command]
+pub async fn album_check_token(
+    id: String,
+    token: String,
+    state: State<'_, AppState>,
+) -> Result<bool, AppError> {
+    Ok(crate::auth::session::verify_token(&state.hmac_secret, &token, &id))
+}
+
+/// Patch album metadata. All fields are optional; only supplied fields are changed.
+/// `cover_photo_id: Some(None)` clears the cover; `Some(Some(id))` sets a new one.
 #[tauri::command]
 pub async fn albums_update(
     id: String,
@@ -143,11 +238,13 @@ pub async fn albums_update(
     state.albums.update(&id, &params_in)
 }
 
+/// Delete an album and all its photo associations. The photos themselves are not deleted.
 #[tauri::command]
 pub async fn albums_delete(id: String, state: State<'_, AppState>) -> Result<(), AppError> {
     state.albums.delete(&id)
 }
 
+/// List photos belonging to an album, paginated by cursor. `limit` defaults to 100, max 500.
 #[tauri::command]
 pub async fn album_photos_list(
     album_id: String,
@@ -203,6 +300,7 @@ pub async fn album_photos_add(
     Ok(())
 }
 
+/// Remove photos from an album without deleting the photos themselves.
 #[tauri::command]
 pub async fn album_photos_remove(
     album_id: String,
@@ -212,6 +310,8 @@ pub async fn album_photos_remove(
     state.albums.remove_photos(&album_id, &photo_ids)
 }
 
+/// Persist a new display order for photos in an album. `ordered_photo_ids` must contain
+/// every photo currently in the album; IDs not in the list are left at their current position.
 #[tauri::command]
 pub async fn album_photos_reorder(
     album_id: String,

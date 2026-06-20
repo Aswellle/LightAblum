@@ -30,6 +30,14 @@ use tauri::State;
 //  查询
 // ─────────────────────────────────────────────────────────
 
+/// Return a page of photos matching `filter`, ordered by `sort_by`/`sort_asc` from settings.
+///
+/// `cursor` is the opaque pagination token from the previous `PhotoPage.next_cursor`.
+/// `limit` defaults to 100, capped at 500.
+///
+/// SEC-H3: if `filter.album_id` refers to a private album, `filter.session_token` must
+/// contain a valid HMAC token issued by `album_verify_password`. Missing or expired tokens
+/// return `TOKEN_REQUIRED`.
 #[tauri::command]
 pub async fn photos_list(
     filter: PhotoFilter,
@@ -38,9 +46,35 @@ pub async fn photos_list(
     state: State<'_, AppState>,
 ) -> Result<PhotoPage, AppError> {
     let limit = limit.unwrap_or(100).min(500);
+
+    // SEC-H3: enforce token for private albums
+    if let Some(ref album_id) = filter.album_id {
+        let conn = state.conn()?;
+        let is_private: bool = conn
+            .query_row(
+                "SELECT COALESCE(is_private, 0) FROM albums WHERE id = ?1",
+                [album_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if is_private {
+            let token_valid = filter
+                .session_token
+                .as_deref()
+                .map(|t| crate::auth::session::verify_token(&state.hmac_secret, t, album_id))
+                .unwrap_or(false);
+
+            if !token_valid {
+                return Err(AppError::Other("TOKEN_REQUIRED".into()));
+            }
+        }
+    }
+
     state.photos.list(&filter, cursor.as_deref(), limit)
 }
 
+/// Fetch a single photo's full record by ID. Returns `PHOTO_NOT_FOUND` if absent.
 #[tauri::command]
 pub async fn photos_get(id: String, state: State<'_, AppState>) -> Result<Photo, AppError> {
     state
@@ -49,6 +83,8 @@ pub async fn photos_get(id: String, state: State<'_, AppState>) -> Result<Photo,
         .ok_or_else(|| AppError::NotFound(format!("Photo {id} not found")))
 }
 
+/// Fetch up to 100 photos by ID in a single DB round-trip. Returns `INVALID_PARAMS` if
+/// the batch exceeds 100 entries. Missing IDs are silently omitted from the result.
 #[tauri::command]
 pub async fn photos_get_batch(
     ids: Vec<String>,
@@ -66,13 +102,15 @@ pub async fn photos_get_batch(
 //  修改
 // ─────────────────────────────────────────────────────────
 
+/// Patch a photo's mutable metadata (`is_favorite`, `rating` 0-5).
+/// Returns the updated `Photo` record. Does not support undo; use `photos_favorite` for
+/// undoable favorite toggling.
 #[tauri::command]
 pub async fn photos_update(
     id: String,
     params: PhotoUpdateParams,
     state: State<'_, AppState>,
 ) -> Result<Photo, AppError> {
-    let conn = state.conn()?;
     if let Some(fav) = params.is_favorite {
         state.photos.set_favorite(&id, fav)?;
     }
@@ -80,10 +118,7 @@ pub async fn photos_update(
         if rating > 5 {
             return Err(AppError::InvalidArgument("Rating must be 0-5".into()));
         }
-        conn.execute(
-            "UPDATE photos SET rating = ?1 WHERE id = ?2",
-            rusqlite::params![rating, id],
-        )?;
+        state.photos.set_rating(&id, rating)?;
     }
     state
         .photos
@@ -112,7 +147,9 @@ pub async fn photos_favorite(
                 "old_value": old_value,
             })
             .to_string();
-            let _ = state.undo.record("favorite_set", &payload);
+            if let Err(e) = state.undo.record("favorite_set", &payload) {
+                tracing::warn!("Undo record failed for favorite_set (operation proceeds): {e}");
+            }
         }
     }
 
@@ -162,7 +199,9 @@ pub async fn photos_favorite_batch(
         "new_value":  value,
     })
     .to_string();
-    let _ = state.undo.record("favorite_batch", &payload);
+    if let Err(e) = state.undo.record("favorite_batch", &payload) {
+        tracing::warn!("Undo record failed for favorite_batch (operation proceeds): {e}");
+    }
 
     // 3. 批量更新（单事务）
     state.photos.set_favorite_batch(&ids, value)
@@ -186,7 +225,9 @@ pub async fn photos_delete(ids: Vec<String>, state: State<'_, AppState>) -> Resu
 
     // 写 undo_log：记录被删除的 id 列表，供 undo_last 恢复用
     let payload = serde_json::json!({ "ids": ids }).to_string();
-    let _ = state.undo.record("photo_delete", &payload);
+    if let Err(e) = state.undo.record("photo_delete", &payload) {
+        tracing::warn!("Undo record failed for photo_delete (operation proceeds): {e}");
+    }
 
     state.photos.soft_delete(&ids)
 }
@@ -211,17 +252,23 @@ pub async fn photos_purge(ids: Vec<String>, state: State<'_, AppState>) -> Resul
             "Exceeded limit of 1000 items".into(),
         ));
     }
-    for id in &ids {
-        if let Ok(Some(p)) = state.photos.get(id) {
-            let path = std::path::Path::new(&p.file_path);
-            if path.exists() {
-                if let Err(e) = std::fs::remove_file(path) {
-                    tracing::warn!("Failed to delete file {}: {}", p.file_path, e);
-                }
+    // Collect file paths before touching the DB; if purge fails we haven't deleted any files
+    let paths_to_delete: Vec<String> = ids
+        .iter()
+        .filter_map(|id| state.photos.get(id).ok().flatten().map(|p| p.file_path))
+        .collect();
+    // DB deletion is atomic — abort here if it fails, leaving disk untouched
+    state.photos.purge(&ids)?;
+    // Best-effort file deletion now that the DB record is gone
+    for file_path in &paths_to_delete {
+        let path = std::path::Path::new(file_path.as_str());
+        if path.exists() {
+            if let Err(e) = std::fs::remove_file(path) {
+                tracing::warn!("Failed to delete file {}: {}", file_path, e);
             }
         }
     }
-    state.photos.purge(&ids)
+    Ok(())
 }
 
 /// v2 新增：仅从程序数据库中清除（不删磁盘原文件）
@@ -250,6 +297,8 @@ pub async fn photos_purge_data(
 //  搜索
 // ─────────────────────────────────────────────────────────
 
+/// Full-text and filter-based photo search. Supports FTS5 queries in `query.q` and
+/// date/album/tag filters. Returns a paginated `PhotoPage` like `photos_list`.
 #[tauri::command]
 pub async fn search_photos(
     query: SearchQuery,
@@ -258,6 +307,8 @@ pub async fn search_photos(
     state.photos.search(&query)
 }
 
+/// Return autocomplete suggestions for the search bar. `limit` defaults to 10.
+/// Suggestions include matching album names, tag names, and date prefixes.
 #[tauri::command]
 pub async fn search_suggestions(
     q: String,
@@ -267,6 +318,8 @@ pub async fn search_suggestions(
     state.photos.search_suggestions(&q, limit.unwrap_or(10))
 }
 
+/// Return aggregate library statistics: total photo count, favorites count,
+/// per-month breakdown, and storage size. Used by the sidebar stats widget.
 #[tauri::command]
 pub async fn search_stats(state: State<'_, AppState>) -> Result<LibraryStats, AppError> {
     state.photos.search_stats()

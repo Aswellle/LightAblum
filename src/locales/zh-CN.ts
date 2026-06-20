@@ -28,6 +28,7 @@ export const zhCN = {
     SIDECAR_ERROR:          '图片处理服务异常，请重试',
     EXIF_ERROR:             'EXIF 元数据解析失败',
     SERDE_ERROR:            '数据序列化失败',
+    TOKEN_REQUIRED:         '请先验证私密相册密码',
     UNKNOWN:                '操作失败，请重试',
   },
 

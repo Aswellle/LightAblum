@@ -51,12 +51,18 @@ interface AlbumContextValue {
   /** 当前相册是否为私密相册（控制菜单操作权限） */
   isPrivateAlbum:   boolean
   removeFromAlbum:  (photoIds: string[]) => void
+  /** SEC-H3: HMAC session token issued after password verification; null when locked */
+  sessionToken:     string | null
+  /** SEC-H3: called by usePhotoData when backend returns TOKEN_REQUIRED */
+  onTokenExpired:   () => void
 }
 
 export const AlbumContext = createContext<AlbumContextValue>({
   albumId:         null,
   isPrivateAlbum:  false,
   removeFromAlbum: () => {},
+  sessionToken:    null,
+  onTokenExpired:  () => {},
 })
 
 export function useAlbumContext() {
@@ -94,7 +100,7 @@ const AlbumHeader = memo(function AlbumHeader({ album, onBack, onOpenCoverPicker
   const commitEdit = useCallback(() => {
     const trimmed = editName.trim()
     if (trimmed && trimmed !== album.name) {
-      api.albums.update(album.id, { name: trimmed })
+      api.albums.update({ id: album.id, name: trimmed })
         .then(() => queryClient.invalidateQueries({ queryKey: ['albums'] }))
         .catch(() => toast.error('重命名失败'))
     }
@@ -481,8 +487,10 @@ export function AlbumView() {
     <>
     <AlbumContext.Provider value={{
       albumId,
-      isPrivateAlbum: album?.isPrivate ?? false,
+      isPrivateAlbum:  album?.isPrivate ?? false,
       removeFromAlbum: handleRemoveFromAlbum,
+      sessionToken:    null,    // SEC-H3: non-private albums need no token
+      onTokenExpired:  () => {},
     }}>
       <div style={{
         height:        '100%',

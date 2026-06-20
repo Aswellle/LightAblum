@@ -19,6 +19,7 @@
 //   photo_tags_add     — 为照片添加标签
 //   photo_tags_remove  — 从照片移除标签
 
+pub mod auth;
 pub mod commands;
 pub mod db;
 pub mod error;
@@ -82,7 +83,8 @@ pub fn run() {
             commands::album::album_photos_reorder,
             commands::album::album_create_private,  // v2 新增
             commands::album::album_set_private,     // v2 新增
-            commands::album::album_verify_password, // v2 新增
+            commands::album::album_verify_password, // v2 新增；SEC-H3：返回 HMAC token
+            commands::album::album_check_token,     // SEC-H3 新增：验证 token 是否有效
             // ── 标签（Phase-B M-12）──────────────────────
             commands::tag::tags_list,
             commands::tag::tags_create,
