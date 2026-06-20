@@ -53,6 +53,10 @@ jobs:
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
+      - name: Install sidecar dependencies
+        run: npm ci
+        working-directory: sidecar
+
       - name: Build sidecar
         run: node scripts/bundle.js
         working-directory: sidecar
