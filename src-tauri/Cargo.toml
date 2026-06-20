@@ -76,7 +76,7 @@ tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # 密码哈希（私密相册）
-bcrypt = "0.15"
+bcrypt = "0.19"
 
 # SEC-H3: HMAC-SHA256 session tokens for private album authorization
 hmac   = "0.12"
