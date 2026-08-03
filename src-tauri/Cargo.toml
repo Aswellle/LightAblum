@@ -80,7 +80,7 @@ bcrypt = "0.15"
 
 # SEC-H3: HMAC-SHA256 session tokens for private album authorization
 hmac   = "0.12"
-sha2   = "0.10"
+sha2   = "0.11"
 base64 = "0.22"
 
 [dev-dependencies]
