@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "LightAlbum",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.lightalbum.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -40,7 +40,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/sharp-worker"]
+    "externalBin": ["binaries/sharp-worker"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer-hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "shell": {

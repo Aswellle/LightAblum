@@ -241,7 +241,12 @@ pub async fn photos_restore(ids: Vec<String>, state: State<'_, AppState>) -> Res
     state.photos.restore(&ids)
 }
 
-/// 永久删除（同时删除磁盘原文件）
+/// 永久删除（同时删除磁盘原文件 + 缩略图文件）
+///
+/// BUGFIX: 原实现只删除原文件，从未清理 {thumb_dir}/{hash[0:2]}/{hash}.{s,m,l}.webp，
+/// 导致每次永久删除都在磁盘上留下孤儿缩略图，且 ThumbnailCache 只在总用量超过
+/// 5GB 时才会驱逐——小于该阈值的孤儿文件永远不会被回收，是缩略图目录体积
+/// 膨胀的主因之一。现在按 file_hash 推算三档缩略图路径并一并删除。
 #[tauri::command]
 pub async fn photos_purge(ids: Vec<String>, state: State<'_, AppState>) -> Result<(), AppError> {
     if ids.is_empty() {
@@ -252,30 +257,35 @@ pub async fn photos_purge(ids: Vec<String>, state: State<'_, AppState>) -> Resul
             "Exceeded limit of 1000 items".into(),
         ));
     }
-    // Collect file paths before touching the DB; if purge fails we haven't deleted any files
-    let paths_to_delete: Vec<String> = ids
-        .iter()
-        .filter_map(|id| state.photos.get(id).ok().flatten().map(|p| p.file_path))
+    // Collect file paths + hashes before touching the DB; if purge fails we haven't deleted anything.
+    // BUGFIX: use get_batch (single IN(...) query) instead of a per-id get() loop — avoids up to
+    // 1000 serialized pool checkouts on a max-5 connection pool.
+    let purge_info: Vec<(String, String, String)> = state
+        .photos
+        .get_batch(&ids)?
+        .into_iter()
+        .map(|p| (p.id, p.file_path, p.file_hash))
         .collect();
     // DB deletion is atomic — abort here if it fails, leaving disk untouched
     state.photos.purge(&ids)?;
     // Best-effort file deletion now that the DB record is gone
-    for file_path in &paths_to_delete {
+    for (photo_id, file_path, file_hash) in &purge_info {
         let path = std::path::Path::new(file_path.as_str());
         if path.exists() {
             if let Err(e) = std::fs::remove_file(path) {
                 tracing::warn!("Failed to delete file {}: {}", file_path, e);
             }
         }
+        state.remove_thumbnails(photo_id, file_hash);
     }
     Ok(())
 }
 
-/// v2 新增：仅从程序数据库中清除（不删磁盘原文件）
+/// v2 新增：仅从程序数据库中清除（不删磁盘原文件，但清理缩略图缓存）
 ///
 /// 用于回收站「从程序中清除」操作：
-/// 照片文件保留在磁盘，但所有数据库记录、相册关联、缩略图引用全部删除。
-/// 用户可以重新导入该文件夹以恢复记录。
+/// 照片文件保留在磁盘，但所有数据库记录、相册关联、缩略图文件全部删除。
+/// 用户可以重新导入该文件夹以恢复记录（会重新生成缩略图）。
 #[tauri::command]
 pub async fn photos_purge_data(
     ids: Vec<String>,
@@ -289,8 +299,19 @@ pub async fn photos_purge_data(
             "Exceeded limit of 1000 items".into(),
         ));
     }
-    // purge() 只删除 DB 记录，不涉及文件系统
-    state.photos.purge(&ids)
+    // BUGFIX: 同 photos_purge，清除记录后也要删缩略图文件，否则同样留下孤儿文件。
+    let purge_info: Vec<(String, String)> = state
+        .photos
+        .get_batch(&ids)?
+        .into_iter()
+        .map(|p| (p.id, p.file_hash))
+        .collect();
+    // purge() 只删除 DB 记录，不涉及原始文件系统
+    state.photos.purge(&ids)?;
+    for (photo_id, file_hash) in &purge_info {
+        state.remove_thumbnails(photo_id, file_hash);
+    }
+    Ok(())
 }
 
 // ─────────────────────────────────────────────────────────

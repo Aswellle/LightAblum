@@ -30,7 +30,7 @@ pub mod state;
 pub mod thumbnail;
 
 use state::AppState;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -130,6 +130,32 @@ pub fn run() {
                     if let Some(ref p) = pipeline {
                         thumbnail::pipeline::enqueue_pending_all(p, &db);
                     }
+                });
+            }
+
+            // BUGFIX: purge_old_trash existed in the DB layer but no caller ever invoked
+            // it, so the advertised "30-day trash auto-purge" never actually ran — expired
+            // photos (and their original + thumbnail files) accumulated on disk forever.
+            // Run once shortly after startup, then every 24h for the life of the process.
+            {
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(30));
+                    let removed = app_handle.state::<AppState>().run_trash_purge();
+                    // BUGFIX: purge mutates the library (rows + files), so the frontend
+                    // must be told or TanStack Query (staleTime Infinity) + photoStore
+                    // keep ghost entries for photos that no longer exist.
+                    if !removed.is_empty() {
+                        let _ = app_handle.emit(
+                            "library:changed",
+                            serde_json::json!({
+                                "added": [],
+                                "modified": [],
+                                "removed": removed,
+                            }),
+                        );
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
                 });
             }
 

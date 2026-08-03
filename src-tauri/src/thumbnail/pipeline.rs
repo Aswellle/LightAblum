@@ -286,6 +286,24 @@ fn process_task(
 ) -> Result<()> {
     let source = std::path::Path::new(&task.file_path);
 
+    // BUGFIX: photos_purge / photos_purge_data / trash auto-purge can remove a photo
+    // while its thumbnail task is still queued. Without this check the worker would
+    // recreate the just-deleted .webp files as orphans — the exact leak we fixed.
+    // A DB lookup failure (e.g. pool exhaustion) must NOT skip; that would permanently
+    // lose legitimate thumbnails. Only a missing (purged) or trashed row is skipped.
+    let photo_active = match db.get() {
+        Ok(conn) => match crate::db::photo::get_by_id(&conn, &task.photo_id) {
+            Ok(Some(p)) => !p.is_deleted,
+            Ok(None) => false,
+            Err(_) => true,
+        },
+        Err(_) => true,
+    };
+    if !photo_active {
+        tracing::debug!("Thumbnail: photo {} no longer active, skipping", task.photo_id);
+        return Ok(());
+    }
+
     // ── 构建输出路径 ──
     let _bucket = thumbnail::ensure_bucket_dir(thumb_dir, &task.file_hash)?;
     let path_s = thumbnail::thumb_path(thumb_dir, &task.file_hash, ThumbSize::S);

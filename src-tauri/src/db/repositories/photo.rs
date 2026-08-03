@@ -45,7 +45,7 @@ pub trait PhotoRepository: Send + Sync {
     fn get_by_path(&self, path: &str) -> Result<Option<Photo>>;
     fn mark_missing(&self, file_path: &str) -> Result<()>;
     fn list_folder_index(&self, folder_path: &str) -> Result<Vec<(String, String, i64)>>;
-    fn purge_old_trash(&self) -> Result<usize>;
+    fn purge_old_trash(&self) -> Result<Vec<(String, String, String)>>;
     fn search(&self, query: &SearchQuery) -> Result<PhotoPage>;
     fn search_suggestions(&self, q: &str, limit: u32) -> Result<SearchSuggestions>;
     fn search_stats(&self) -> Result<LibraryStats>;
@@ -224,7 +224,7 @@ impl PhotoRepository for SqlitePhotoRepository {
         crate::db::photo::list_folder_index(&conn, folder_path)
     }
 
-    fn purge_old_trash(&self) -> Result<usize> {
+    fn purge_old_trash(&self) -> Result<Vec<(String, String, String)>> {
         let conn = self.conn()?;
         crate::db::photo::purge_old_trash(&conn)
     }

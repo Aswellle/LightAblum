@@ -408,13 +408,39 @@ pub fn update_thumbnails(
     Ok(())
 }
 
-pub fn purge_old_trash(conn: &Connection) -> Result<usize> {
-    let rows = conn.execute(
-        "DELETE FROM photos WHERE is_deleted = 1 \
-         AND deleted_at < strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 days')",
-        [],
+/// 删除回收站中超过 30 天的照片记录，返回 (id, file_path, file_hash) 供调用方
+/// 删除对应的原文件与缩略图文件（本函数只负责 DB 行，不触碰文件系统）。
+///
+/// BUGFIX: 原实现直接执行 `DELETE ... WHERE deleted_at < ...` 并只返回受影响行数，
+/// 调用方拿不到被删照片的 file_path/file_hash，导致磁盘上的原文件和缩略图永远
+/// 不会被清理——这也是本函数此前从未被任何调用方触发的原因之一（见 lib.rs 接入）。
+///
+/// 守卫条件（单条原子 DELETE...RETURNING，无 SELECT 后 DELETE 的间隙）：
+///   - `is_deleted = 1`：关闭恢复竞态——用户在 SELECT 后、DELETE 前并发恢复的行
+///     （is_deleted 置 0）在写锁下不会被误删；
+///   - `deleted_at IS NOT NULL`：watcher 的 mark_missing 标记缺失的照片不参与自动
+///     清除（它们不是用户主动删除的回收站内容，原文件可能只是暂时离线）。
+pub fn purge_old_trash(conn: &Connection) -> Result<Vec<(String, String, String)>> {
+    let tx = conn.unchecked_transaction()?;
+    let mut stmt = tx.prepare(
+        "DELETE FROM photos \
+         WHERE is_deleted = 1 \
+           AND deleted_at IS NOT NULL \
+           AND deleted_at < strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 days') \
+         RETURNING id, file_path, file_hash",
     )?;
-    Ok(rows)
+    let expired: Vec<(String, String, String)> = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    drop(stmt); // stmt borrows tx; must be dropped before tx.commit() takes ownership
+    tx.commit()?;
+    Ok(expired)
 }
 
 // ─────────────────────────────────────────────────────────
@@ -459,9 +485,16 @@ pub fn list_folder_index(
     Ok(rows)
 }
 
+/// 文件从磁盘消失（watcher 触发）时标记为缺失。
+///
+/// 与用户主动删除（soft_delete）的关键区别：**不设置 deleted_at**。
+/// 回收站 30 天自动清除只处理用户主动删除的行（deleted_at IS NOT NULL），
+/// 因此 watcher 标记缺失的照片永远不会被自动清除——它们不是用户主动删除的，
+/// 原文件可能只是暂时离线（拔出移动硬盘 / 网络盘暂不可达），30 天后若原图
+/// 重新出现在磁盘上，自动清除若把它们当回收站处理会永久删除原图，造成数据丢失。
 pub fn mark_missing(conn: &Connection, file_path: &str) -> Result<()> {
     conn.execute(
-        "UPDATE photos SET is_deleted = 1, deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') \
+        "UPDATE photos SET is_deleted = 1, deleted_at = NULL \
          WHERE file_path = ?1 AND is_deleted = 0",
         params![file_path],
     )?;

@@ -72,13 +72,21 @@ pub async fn settings_update(
 // ─────────────────────────────────────────────────────────
 
 /// 存储信息（serde camelCase → TypeScript StorageInfo 接口）
+///
+/// BUGFIX: 原字段为 thumb_cache_bytes / thumb_file_count，而前端
+/// src/types/filters.ts 的 StorageInfo 契约声明的是 thumbnailSizeBytes /
+/// thumbnailCount / dbSizeBytes / totalSizeBytes。字段名不一致导致前端
+/// storageInfo.thumbnailCount.toLocaleString() 对 undefined 调用抛 TypeError，
+/// React 无错误边界 → 整个界面白屏。这里按前端契约补齐所有字段。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageInfo {
     pub data_dir: String,
     pub thumb_dir: String,
-    pub thumb_cache_bytes: u64,
-    pub thumb_file_count: u64,
+    pub thumbnail_size_bytes: u64,
+    pub thumbnail_count: u64,
+    pub db_size_bytes: u64,
+    pub total_size_bytes: u64,
 }
 
 // ─────────────────────────────────────────────────────────
@@ -91,32 +99,38 @@ pub struct StorageInfo {
 pub async fn storage_get_info(state: State<'_, AppState>) -> Result<StorageInfo, AppError> {
     let data_dir = state.data_dir.clone();
     let thumb_dir = state.thumb_dir.clone();
+    let db_path = data_dir.join("library.db");
     let thumb_dir_for_stat = thumb_dir.clone();
 
-    let (thumb_cache_bytes, thumb_file_count) =
-        tokio::task::spawn_blocking(move || -> (u64, u64) {
-            let mut total_bytes: u64 = 0;
+    let (thumbnail_size_bytes, thumbnail_count, db_size_bytes) =
+        tokio::task::spawn_blocking(move || -> (u64, u64, u64) {
+            let mut thumb_bytes: u64 = 0;
             let mut file_count: u64 = 0;
             if let Ok(entries) = std::fs::read_dir(&thumb_dir_for_stat) {
                 for entry in entries.flatten() {
                     if let Ok(meta) = entry.metadata() {
                         if meta.is_file() {
-                            total_bytes += meta.len();
+                            thumb_bytes += meta.len();
                             file_count += 1;
                         }
                     }
                 }
             }
-            (total_bytes, file_count)
+            let db_bytes = std::fs::metadata(&db_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+            (thumb_bytes, file_count, db_bytes)
         })
         .await
-        .unwrap_or((0, 0));
+        .unwrap_or((0, 0, 0));
 
     Ok(StorageInfo {
         data_dir: data_dir.to_string_lossy().to_string(),
         thumb_dir: thumb_dir.to_string_lossy().to_string(),
-        thumb_cache_bytes,
-        thumb_file_count,
+        thumbnail_size_bytes,
+        thumbnail_count,
+        db_size_bytes,
+        total_size_bytes: thumbnail_size_bytes + db_size_bytes,
     })
 }
 

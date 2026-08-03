@@ -143,6 +143,17 @@ impl ThumbnailCache {
         }
     }
 
+    /// 显式驱逐单个条目（不删除磁盘文件——调用方已自行删除或即将删除）。
+    /// 用于 photos_purge / photos_purge_data：照片被删除后，其缩略图缓存索引
+    /// 必须立刻失效，否则 used_bytes 记录的是已不存在文件的大小，
+    /// 直到下次 rebuild_usage() 之前会持续偏离磁盘真实占用。
+    pub fn evict(&mut self, photo_id: &str, size_suffix: &str) {
+        let k = Self::key(photo_id, size_suffix);
+        if let Some(entry) = self.lru.pop(&k) {
+            self.used_bytes = self.used_bytes.saturating_sub(entry.size_bytes);
+        }
+    }
+
     // ── 统计 ──────────────────────────────────────────────
 
     pub fn used_bytes(&self) -> u64 {

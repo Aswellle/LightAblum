@@ -1,7 +1,24 @@
 <!doctype html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      首帧渲染前应用主题 class，避免启动闪屏。
+      原实现硬编码 class="dark"，浅色/跟随系统用户启动时会先闪一帧深色，
+      React 挂载后 useTheme 再按保存的设置切换，导致深↔浅跳变。
+      这里按 prefers-color-scheme 立即设好初值（默认主题为 system）；
+      用户显式保存的主题仍由 useTheme 在 settings 加载后应用。
+    -->
+    <script>
+      (function () {
+        try {
+          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          document.documentElement.classList.add(dark ? 'dark' : 'light')
+        } catch (e) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LightAlbum</title>

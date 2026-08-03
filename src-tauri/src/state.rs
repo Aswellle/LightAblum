@@ -90,10 +90,10 @@ pub struct AppState {
     /// Undo 仓库
     pub undo: Arc<dyn UndoRepository>,
 
-    /// 应用数据目录：%APPDATA%/LightAlbum/
+    /// 应用数据目录：%APPDATA%/LightAlbum/（debug 构建为 LightAlbum-dev/，与生产隔离）
     pub data_dir: PathBuf,
 
-    /// 缩略图目录：%APPDATA%/LightAlbum/thumbnails/
+    /// 缩略图目录：{data_dir}/thumbnails/
     pub thumb_dir: PathBuf,
 
     /// 当前扫描状态
@@ -121,9 +121,18 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Result<Self> {
+        // BUGFIX: `cargo tauri dev` and the installed release build both resolved to
+        // the exact same `%APPDATA%/LightAlbum/` folder (same library.db + thumbnails/),
+        // so photos imported while developing showed up in the production install and
+        // vice versa. Debug builds get their own sibling folder so the two never collide.
+        let dir_name = if cfg!(debug_assertions) {
+            "LightAlbum-dev"
+        } else {
+            "LightAlbum"
+        };
         let data_dir = dirs_next::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("LightAlbum");
+            .join(dir_name);
 
         let thumb_dir = data_dir.join("thumbnails");
         std::fs::create_dir_all(&data_dir)?;
@@ -317,6 +326,83 @@ impl AppState {
         let raw = serde_json::to_string_pretty(settings)?;
         std::fs::write(&path, raw)?;
         Ok(())
+    }
+
+    /// 删除一张照片的 s/m/l 三档缩略图文件（若存在于磁盘），并驱逐对应的内存缓存索引。
+    /// Best-effort：删除失败仅记录 warn。供 photos_purge / photos_purge_data /
+    /// 回收站 30 天自动清理共用，避免各处各写一份孤儿文件清理逻辑。
+    pub fn remove_thumbnails(&self, photo_id: &str, file_hash: &str) {
+        use crate::thumbnail::{thumb_path, ThumbSize};
+
+        // BUGFIX: scan 失败时 file_hash 可能为空串，而 thumb_path("") 会把所有
+        // 空 hash 照片映射到同一个 {thumb_dir}/.s.webp —— 绝不能碰它。
+        if file_hash.is_empty() {
+            return;
+        }
+        // BUGFIX: 缩略图按 file_hash 命名，字节相同的两张照片共享同一组 .webp。
+        // 若仍有其他照片行引用该 hash（含回收站中的，恢复后还要用），则保留文件，
+        // 否则存活照片的网格/预览缩略图会永久损坏。
+        if self.count_photos_with_hash(file_hash) > 0 {
+            return;
+        }
+
+        // 一次加锁覆盖三档尺寸；Mutex 中毒时恢复内部数据继续驱逐（而非静默跳过）。
+        let mut cache = self.cache.lock().unwrap_or_else(|p| p.into_inner());
+        for size in [ThumbSize::S, ThumbSize::M, ThumbSize::L] {
+            let path = thumb_path(&self.thumb_dir, file_hash, size);
+            if path.exists() {
+                if let Err(e) = std::fs::remove_file(&path) {
+                    tracing::warn!("Failed to delete thumbnail {}: {}", path.display(), e);
+                }
+            }
+            cache.evict(photo_id, size.file_suffix());
+        }
+    }
+
+    /// 统计仍引用给定 file_hash 的照片行数（含回收站中的行——恢复后仍需缩略图）。
+    fn count_photos_with_hash(&self, file_hash: &str) -> i64 {
+        let conn = match self.conn() {
+            Ok(c) => c,
+            Err(_) => return 0,
+        };
+        conn.query_row(
+            "SELECT COUNT(*) FROM photos WHERE file_hash = ?1",
+            [file_hash],
+            |row| row.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    /// 回收站 30 天自动清理：删除已过期的软删除记录，同时清理原文件和缩略图文件。
+    /// 返回被移除的照片原文件路径列表，供调用方广播 library:changed 事件。
+    ///
+    /// BUGFIX: purge_old_trash 此前是死代码——DB 层实现存在但从未被任何调用方
+    /// 触发，导致 README/CLAUDE.md 宣称的「30 天自动清除」从未真正发生，回收站
+    /// 中过期照片会无限期保留（原文件 + 缩略图都占着磁盘空间）。
+    pub fn run_trash_purge(&self) -> Vec<String> {
+        let expired = match self.photos.purge_old_trash() {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::error!("Trash auto-purge: DB error: {e}");
+                return Vec::new();
+            }
+        };
+        if expired.is_empty() {
+            return Vec::new();
+        }
+        let mut removed_paths = Vec::with_capacity(expired.len());
+        for (photo_id, file_path, file_hash) in &expired {
+            let path = std::path::Path::new(file_path.as_str());
+            if path.exists() {
+                if let Err(e) = std::fs::remove_file(path) {
+                    tracing::warn!("Trash auto-purge: failed to delete file {}: {}", file_path, e);
+                }
+            }
+            self.remove_thumbnails(photo_id, file_hash);
+            removed_paths.push(file_path.clone());
+        }
+        tracing::info!("Trash auto-purge: removed {} expired photo(s)", expired.len());
+        removed_paths
     }
 }
 

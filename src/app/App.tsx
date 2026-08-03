@@ -29,6 +29,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { PhotoPreview } from '@/components/preview/PhotoPreview'
 import { Toast } from '@/components/common/Toast'
 import { ContextMenu } from '@/components/common/ContextMenu'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { usePreviewStore, selectIsPreviewOpen } from '@/stores/previewStore'
 import { useTheme } from '@/hooks/useTheme'
 import { useEventBus } from '@/services/eventBus'
@@ -53,30 +54,32 @@ function AppContent() {
      *   - text-[--la-text-primary] → 全局默认文字色
      *   - font-sans → Segoe UI Variable
      */
-    <div
-      className="h-screen w-screen overflow-hidden select-none"
-      style={{
-        backgroundColor: 'var(--la-bg-app)',
-        color:           'var(--la-text-primary)',
-        fontFamily:      'var(--la-font-sans)',
-      }}
-    >
-      {/* 主布局骨架：侧边栏 + 工具栏 + 照片网格/内容区 */}
-      <AppShell />
+    <ErrorBoundary>
+      <div
+        className="h-screen w-screen overflow-hidden select-none"
+        style={{
+          backgroundColor: 'var(--la-bg-app)',
+          color:           'var(--la-text-primary)',
+          fontFamily:      'var(--la-font-sans)',
+        }}
+      >
+        {/* 主布局骨架：侧边栏 + 工具栏 + 照片网格/内容区 */}
+        <AppShell />
 
-      {/*
-        大图预览覆盖层
-        AnimatePresence 监听 isPreviewOpen 变化，
-        在 true→false 时等待退出动画完成后再卸载 PhotoPreview
-      */}
-      <AnimatePresence mode="wait">
-        {isPreviewOpen && <PhotoPreview key="photo-preview" />}
-      </AnimatePresence>
+        {/*
+          大图预览覆盖层
+          AnimatePresence 监听 isPreviewOpen 变化，
+          在 true→false 时等待退出动画完成后再卸载 PhotoPreview
+        */}
+        <AnimatePresence mode="wait">
+          {isPreviewOpen && <PhotoPreview key="photo-preview" />}
+        </AnimatePresence>
 
-      {/* 全局 Portal 组件（渲染到 body，不受父级 overflow:hidden 影响） */}
-      <ContextMenu />
-      <Toast />
-    </div>
+        {/* 全局 Portal 组件（渲染到 body，不受父级 overflow:hidden 影响） */}
+        <ContextMenu />
+        <Toast />
+      </div>
+    </ErrorBoundary>
   )
 }
 

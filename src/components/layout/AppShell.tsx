@@ -158,15 +158,28 @@ function AlbumViewRouter({ albumId }: { albumId: string }) {
 function MainContent({ view }: { view: ViewState }) {
   const viewKey = view.type === 'album' ? `album-${view.albumId}` : view.type
 
+  // 首次挂载不淡入（消除启动时整块内容从透明浮现的闪屏）；
+  // 之后切换视图仍保留淡入淡出。
+  const firstViewRendered = useRef(false)
+  useEffect(() => {
+    firstViewRendered.current = true
+  }, [])
+
   return (
-    <AnimatePresence mode="sync" initial={false}>
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={viewKey}
-        initial={{ opacity: 0 }}
+        initial={firstViewRendered.current ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12, ease: 'easeInOut' }}
-        style={{ position: 'absolute', inset: 0 }}
+        style={{
+          position:        'absolute',
+          inset:           0,
+          // 实心应用背景：mode="wait" 切换间隙 / 淡入期间不再透出下方内容，
+          // 消除旧的「黑色停留动画」和旧网格缩略图的「虚影」重叠。
+          backgroundColor: 'var(--la-bg-app)',
+        }}
       >
         {renderView(view)}
       </motion.div>

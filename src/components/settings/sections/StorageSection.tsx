@@ -163,25 +163,25 @@ export const StorageSection = memo(function StorageSection({
                 color:      'var(--la-text-primary)',
                 fontWeight: 'var(--la-weight-medium)' as unknown as number,
               }}>
-                {stats.totalPhotos.toLocaleString()} 张
+                {(stats.totalPhotos ?? 0).toLocaleString()} 张
               </span>
             </SettingRow>
 
             <SettingRow label="收藏照片">
               <span style={{ fontSize: 'var(--la-text-sm)', color: 'var(--la-text-secondary)' }}>
-                {stats.totalFavorites.toLocaleString()} 张
+                {(stats.totalFavorites ?? 0).toLocaleString()} 张
               </span>
             </SettingRow>
 
             <SettingRow label="相册数量">
               <span style={{ fontSize: 'var(--la-text-sm)', color: 'var(--la-text-secondary)' }}>
-                {stats.totalAlbums} 个
+                {stats.totalAlbums ?? 0} 个
               </span>
             </SettingRow>
 
             <SettingRow label="照片文件总大小">
               <span style={{ fontSize: 'var(--la-text-sm)', color: 'var(--la-text-secondary)' }}>
-                {formatBytes(stats.totalSizeBytes)}
+                {formatBytes(stats.totalSizeBytes ?? 0)}
               </span>
             </SettingRow>
           </>
@@ -214,13 +214,13 @@ export const StorageSection = memo(function StorageSection({
               color:      'var(--la-text-secondary)',
               fontWeight: 'var(--la-weight-medium)' as unknown as number,
             }}>
-              {formatBytes(storageInfo.thumbnailSizeBytes)}
+              {formatBytes(storageInfo.thumbnailSizeBytes ?? 0)}
               <span style={{
                 fontSize: 'var(--la-text-xs)',
                 color:    'var(--la-text-tertiary)',
                 marginLeft: '6px',
               }}>
-                （{storageInfo.thumbnailCount.toLocaleString()} 个文件）
+                （{(storageInfo.thumbnailCount ?? 0).toLocaleString()} 个文件）
               </span>
             </span>
           ) : (
