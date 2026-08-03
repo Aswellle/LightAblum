@@ -68,7 +68,7 @@ dirs-next = "2"               # 跨平台数据目录路径
 tokio = { version = "1", features = ["full"] }
 
 # 错误处理
-thiserror = "1"
+thiserror = "2"
 anyhow    = "1"
 
 # 日志
