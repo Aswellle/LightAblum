@@ -46,7 +46,7 @@ kamadak-exif = "0.5"
 
 # 文件系统监听
 notify               = "6"
-notify-debouncer-full = "0.3"
+notify-debouncer-full = "0.7"
 
 # 文件遍历（自动跳过隐藏目录）
 ignore = "0.4"
